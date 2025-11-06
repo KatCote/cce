@@ -1,7 +1,7 @@
 # CasteCore Engine
 ![](https://i.postimg.cc/7h4p7jDn/cce.png)
 #
-![license](https://badgen.net/badge/License/GPL-3.0/blue?icon=opencollective)
+![license](https://badgen.net/badge/License/MIT/blue?icon=opencollective)
 ![version](https://badgen.net/badge/Version/0.1.0/orange?icon=terminal)
 ![wiki](https://badgen.net/badge/Wiki/WBS/purple?icon=wiki)
 
