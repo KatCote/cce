@@ -1,18 +1,21 @@
-CC = gcc
+CC = clang
 
 SRCS = \
 	src/engine/window/window.c \
 	src/engine/init/init.c \
 	src/engine/render/render.c \
+	src/engine/text/text.c \
 
 INCLUDES = \
 	-Isrc \
+	-Isrc/exteral \
 	-Isrc/engine \
 	-Isrc/engine/window \
 	-Isrc/engine/init \
 	-Isrc/engine/render \
+	-Isrc/engine/text \
 
-CFLAGS = -std=c99 -Wall -Wextra -fPIC
+CFLAGS = -std=c23 -Wall -Wextra -fPIC
 
 LIBS = -lglfw -lGL -lm
 
@@ -36,8 +39,22 @@ test-window: all
 test-pixel-grid: all
 	$(MAKE) -C examples test-pixel-grid
 
+test-moving-grid: all
+	$(MAKE) -C examples test-moving-grid
+
+test-text: all
+	$(MAKE) -C examples test-text
+
 test: all
 	$(MAKE) -C examples test-all
+
+deploy:
+	sudo cp $(BUILD_DIR)/include/cce.h /usr/include
+	sudo cp $(BUILD_DIR)/libcce.so /usr/lib
+
+cleanup:
+	sudo rm /usr/include/cce.h
+	sudo rm /usr/lib/libcce.so
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -49,4 +66,4 @@ clean:
 	rm -rf $(BUILD_DIR)
 	$(MAKE) -C examples clean
 
-.PHONY: all clean install_headers test-window test-all
+.PHONY: all clean install_headers test-all

@@ -1,9 +1,10 @@
-#include <engine.h>
+#include "window.h"
+#include "../engine.h"
+
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <window.h>
 
 struct Window {
     GLFWwindow* handle;
@@ -11,19 +12,6 @@ struct Window {
     int height;
     char* title;
 };
-
-static char* copy_string(const char* src)
-{
-    if (!src) return NULL;
-    
-    size_t len = strlen(src);
-    char* dest = malloc(len + 1);
-    if (!dest) return NULL;
-    
-    strcpy(dest, src);
-
-    return dest;
-}
 
 Window* cce_window_create(int width, int height, const char* title)
 {
@@ -56,11 +44,6 @@ Window* cce_window_create(int width, int height, const char* title)
     }
     
     glfwMakeContextCurrent(glfw_window);
-    
-    // const GLubyte* version = glGetString(GL_VERSION);
-    // const GLubyte* renderer = glGetString(GL_RENDERER);
-    // cce_printf( "OpenGL version: %s\n", version);
-    // cce_printf( "OpenGL renderer: %s\n", renderer);
     
     Window* window = malloc(sizeof(Window));
     if (!window)
@@ -115,4 +98,17 @@ void cce_window_swap_buffers(Window* window)
 void cce_window_make_current(Window* window)
 {
     if (window && window->handle) { glfwMakeContextCurrent(window->handle); }
+}
+
+static char* copy_string(const char* src)
+{
+    if (!src) return NULL;
+    
+    size_t len = strlen(src);
+    char* dest = malloc(len + 1);
+    if (!dest) return NULL;
+    
+    strcpy(dest, src);
+
+    return dest;
 }

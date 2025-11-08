@@ -15,7 +15,7 @@ int main() {
 
     set_engine_seed(0);
     
-    Window* window = cce_window_create(width, height, CCE_NAME " " CCE_VERSION " | " "Pixel Grid");
+    Window* window = cce_window_create(width, height, CCE_NAME " " CCE_VERSION " | " "Moving Grid");
     if (!window) {
         printf("Window creation failed\n");
         cce_engine_cleanup();
@@ -31,15 +31,11 @@ int main() {
 
     while (cce_window_should_close(window) == 0 && frame < 300)
     {
-        if (!a)
-        {
-            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
-            cce_draw_grid(0, 0, width/2, height, 10, 0, 0, DefaultStone);
-            cce_draw_grid(width/2, 0, width, height, 5, 0, 0, DefaultGrass);
-            cce_window_swap_buffers(window);
-        }
-        a++;
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        cce_draw_grid(0, 0, width/2, height, 10, frame * 10, frame * 10, DefaultStone);
+        cce_draw_grid(width/2, 0, width, height, 5, frame * -5, frame * -5, DefaultGrass);
+        cce_window_swap_buffers(window);
         
         cce_window_poll_events();
         
