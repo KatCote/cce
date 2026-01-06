@@ -45,6 +45,9 @@ test-moving-grid: all
 test-text: all
 	$(MAKE) -C examples test-text
 
+test-chunk: all
+	$(MAKE) -C examples test-chunk
+
 test: all
 	$(MAKE) -C examples test-all
 

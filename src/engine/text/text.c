@@ -30,7 +30,7 @@ TTF_Font* ttf_font_load(const char* filename, float font_size)
 {
     FILE* font_file = fopen(filename, "rb");
     if (!font_file) {
-        cce_printf("Failed to open font file: %s\n", filename);
+        printf("Failed to open font file: %s\n", filename);
         return NULL;
     }
     
@@ -60,7 +60,7 @@ TTF_Font* ttf_font_load(const char* filename, float font_size)
                                      font->char_data);
     
     if (result <= 0) {
-        cce_printf("Failed to bake font bitmap. Texture too small?\n");
+        printf("Failed to bake font bitmap. Texture too small?\n");
         free(ttf_data);
         free(temp_bitmap);
         free(font->char_data);
@@ -92,7 +92,6 @@ TTF_Font* ttf_font_load(const char* filename, float font_size)
     stbtt_InitFont(&info, ttf_data, 0);
     font->scale = stbtt_ScaleForPixelHeight(&info, font_size);
     
-    // Очистка временных данных
     free(ttf_data);
     free(temp_bitmap);
     free(rgba_bitmap);
@@ -113,7 +112,7 @@ void ttf_render_text(TTF_Font* font, const char* text, float x, float y, Palette
 {
     if (!font || !text) return;
 
-    Color color;
+    cce_color color;
 
     if (palette != Manual)
     {
@@ -126,6 +125,7 @@ void ttf_render_text(TTF_Font* font, const char* text, float x, float y, Palette
         color.r = va_arg(rgb, double);
         color.g = va_arg(rgb, double);
         color.b = va_arg(rgb, double);
+        color.a = va_arg(rgb, double);
         va_end(rgb);
     }
 
@@ -134,7 +134,7 @@ void ttf_render_text(TTF_Font* font, const char* text, float x, float y, Palette
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    glColor3f(color.r, color.g, color.b);
+    glColor4ub(color.r, color.g, color.b, color.a);
     
     float start_x = x;
     

@@ -1,37 +1,54 @@
 # CasteCore Engine
-![](https://i.postimg.cc/7h4p7jDn/cce.png)
-#
+[//]:![](https://i.postimg.cc/7h4p7jDn/cce.png)
+[//]:#
 ![license](https://badgen.net/badge/License/MIT/blue?icon=opencollective)
 ![version](https://badgen.net/badge/Version/0.1.0/orange?icon=terminal)
 ![wiki](https://badgen.net/badge/Wiki/WBS/purple?icon=wiki)
 
----
+</br>
 
-# 1. Description
+# Description
+>[!NOTE]
+>WBS
 
-WBS
+</br>
 
----
+# Dependencies
+>[!NOTE]
+>## List
+>
+>- GLFW
+>- OpenGL
 
-# 2. Deps
-## List
+</br>
 
-- ### GLFW
-- ### OpenGL
+>[!IMPORTANT]
+>## Installation
+>### Ubuntu/Debian
+>```bash
+>sudo apt install libglfw3-dev libgl1-mesa-dev
+>```
+>
+>### Arch Linux
+>```bash
+>sudo pacman -S glfw-x11 glfw-wayland mesa
+>```
 
-## Installation
+</br>
 
-### Ubuntu/Debian
-```
-sudo apt install libglfw3-dev libgl1-mesa-dev
-```
+# Provided Functionality
+>[!IMPORTANT]
+>WBS
 
-### Arch Linux
-```
-sudo pacman -S glfw-x11 glfw-wayland mesa
-```
+</br>
 
----
+# Tips
+>[!TIP]
+>WBS
 
-# 3. Provided API
-WBS
+</br>
+
+# Special Thanks
+
+Sean Barrett (aka "nothings") for STB headers </br>
+Link: <https://github.com/nothings/stb>

@@ -1,6 +1,7 @@
 #include "window.h"
 #include "../engine.h"
 
+#include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -16,6 +17,12 @@ struct Window {
 Window* cce_window_create(int width, int height, const char* title)
 {
     glfwDefaultWindowHints();
+
+    if (engine_msaa > 0)
+    {
+        glfwWindowHint(GLFW_SAMPLES, (GLint) engine_msaa);
+        glEnable(GL_MULTISAMPLE);
+    }
     
     glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);

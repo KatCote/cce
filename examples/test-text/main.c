@@ -6,14 +6,16 @@
 int main() {
     int width = 1920;
     int height = 1080;
-    printf("=== CCE Pixel Grid Test ===\n");
+    printf("=== CCE Text Test ===\n");
+
+    set_engine_seed(1337);
     
     if (cce_engine_init() != 0) {
         printf("Engine init failed\n");
         return -1;
     }
 
-    set_engine_seed(0);
+    set_engine_msaa(4);
     
     Window* window = cce_window_create(width, height, CCE_NAME " " CCE_VERSION " | " "Text");
     if (!window) {
@@ -36,10 +38,9 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         cce_draw_grid(0, 0, width, height, 7, frame * 7, frame * 7, DefaultGrass);
-        //cce_draw_grid(0, 0, width/2, height, 7, frame * 7, frame * 7, DefaultStone);
-
+        
         ttf_render_text(font2, "1234567890\nABCDEFGHI\nJKLMNOPQRS\nTUVWXYZ\n(){}[].,?!<>", 100, 100, DefaultLight);
-        ttf_render_text(font, "1234567890\nABCDEFGHI\nJKLMNOPQRS\nTUVWXYZ\n(){}[].,?!<>", width - 500, 100, DefaultDark);
+        ttf_render_text(font, "1234567890\nABCDEFGHI\nJKLMNOPQRS\nTUVWXYZ\n(){}[].,?!<>", width - 150, 100, DefaultDark);
 
         cce_window_swap_buffers(window);
         cce_window_poll_events();

@@ -23,9 +23,13 @@ test-text:
 	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
 	$@/$@.out
 
-test-all: test-window test-pixel-grid test-moving-grid test-text
+test-chunk:
+	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
+	$@/$@.out
+
+test-all: test-window test-pixel-grid test-moving-grid test-text test-chunk
 
 clean:
 	rm -f test_window/test_*.out
 
-.PHONY: clean test-all test-window test-pixel-grid test-moving-grid test-text
+.PHONY: clean test-all test-window test-pixel-grid test-moving-grid test-text test-chunk

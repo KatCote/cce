@@ -6,14 +6,16 @@
 int main() {
     int width = 1920;
     int height = 1080;
-    printf("=== CCE Pixel Grid Test ===\n");
+    printf("=== CCE Moving Grid Test ===\n");
+
+    set_engine_seed(1337);
     
     if (cce_engine_init() != 0) {
         printf("Engine init failed\n");
         return -1;
     }
 
-    set_engine_seed(0);
+    set_engine_msaa(8);
     
     Window* window = cce_window_create(width, height, CCE_NAME " " CCE_VERSION " | " "Moving Grid");
     if (!window) {
@@ -33,8 +35,10 @@ int main() {
     {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
         cce_draw_grid(0, 0, width/2, height, 10, frame * 10, frame * 10, DefaultStone);
         cce_draw_grid(width/2, 0, width, height, 5, frame * -5, frame * -5, DefaultGrass);
+        cce_draw_cloud(width/2 - 150, height/2, frame, 0, 250, 190843375);
         cce_window_swap_buffers(window);
         
         cce_window_poll_events();
@@ -43,7 +47,7 @@ int main() {
         if (frame % 60 == 0) {
             printf("Frame: %d\n", frame);
         }
-        usleep(16666);
+        usleep(100);
     }
     
     printf("Test completed\n");
