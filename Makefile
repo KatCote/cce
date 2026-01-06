@@ -17,7 +17,7 @@ INCLUDES = \
 	-Isrc/engine/text \
 	-Isrc/engine/timer \
 
-CFLAGS = -std=c23 -Wall -Wextra -fPIC
+CFLAGS = -std=c23 -Wall -Wextra -fPIC -O2
 
 LIBS = -lglfw -lGL -lm
 
@@ -38,14 +38,8 @@ install_headers: | $(BUILD_DIR)/include
 test-window: all
 	$(MAKE) -C examples test-window
 
-test-pixel-grid: all
-	$(MAKE) -C examples test-pixel-grid
-
 test-moving-grid: all
 	$(MAKE) -C examples test-moving-grid
-
-test-text: all
-	$(MAKE) -C examples test-text
 
 test-chunk: all
 	$(MAKE) -C examples test-chunk

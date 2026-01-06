@@ -11,6 +11,7 @@ while IFS= read -r file; do
             total_lines=$((total_lines + lines_in_file))
         fi
     fi
-done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -not -path "$EXCLUDE_DIR/*")
+done < <(find . -type f \( -name "*.c" -o -name "*.h" \))
+#done < <(find . -type f \( -name "*.c" -o -name "*.h" \) -not -path "$EXCLUDE_DIR/*")
 
 echo $total_lines

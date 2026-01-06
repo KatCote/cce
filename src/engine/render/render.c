@@ -9,9 +9,22 @@
 #include <stdarg.h>
 #include <string.h>
 
-typedef struct {
-    float x, y, radius;
-} CloudBlob;
+// Определения для PBO констант
+#ifndef GL_PIXEL_UNPACK_BUFFER
+#define GL_PIXEL_UNPACK_BUFFER 0x88EC
+#endif
+
+#ifndef GL_STREAM_DRAW
+#define GL_STREAM_DRAW 0x88E0
+#endif
+
+// Прямые объявления функций PBO (OpenGL 1.5+)
+// Эти функции должны быть доступны через динамическую загрузку или напрямую
+extern void glGenBuffers(GLsizei n, GLuint *buffers);
+extern void glDeleteBuffers(GLsizei n, const GLuint *buffers);
+extern void glBindBuffer(GLenum target, GLuint buffer);
+extern void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+extern void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
 
 pct frame[1920][1080];
 
@@ -24,88 +37,6 @@ void cce_setup_2d_projection(int width, int height)
     glLoadIdentity();
 }
 
-void cce_draw_grid(int x0, int y0, int x1, int y1, int pixel_size, int offset_x, int offset_y, CCE_Palette palette)
-{
-    if ((x0 > x1) || (y0 > y1)) { cce_printf("Wrong grid size!\n"); ERRLOG; return; }
-    if (pixel_size < 1) { cce_printf("Wrong pixel size!\n"); ERRLOG; return; }
-
-    int cols = (x1 + pixel_size - 1) / pixel_size;
-    int rows = (y1 + pixel_size - 1) / pixel_size;
-
-    CCE_Color color;
-    
-    for (int row = 0; row < rows; row++)
-    {
-        for (int col = 0; col < cols; col++)
-        {
-            int pixel_x = x0 + col * pixel_size;
-            int pixel_y = y0 + row * pixel_size;
-            
-            color = cce_get_color(pixel_x, pixel_y, offset_x, offset_y, palette);
-            
-            draw_pixel(pixel_x, pixel_y, pixel_size, color.r, color.g, color.b, color.a);
-        }
-    }
-
-    color = cce_get_color(x1 - pixel_size + 1, y1 - pixel_size + 1, offset_x, offset_y, palette);
-    draw_pixel(x1, y1, pixel_size, color.r, color.g, color.b, color.a);
-}
-
-void cce_draw_cloud(int center_x, int center_y, int offset_x, int offset_y, float size, int seed)
-{
-    int num_blobs = 8 + 1 % 6;
-    CloudBlob blobs[num_blobs];
-    
-    for (int i = 0; i < num_blobs; i++)
-    {
-        blobs[i].x = center_x + (seed*i % (int)(size * 1.5f) - size * 0.75f);
-        blobs[i].y = center_y + (seed*i % (int)(size) - size * 0.5f);
-        blobs[i].radius = size * (0.3f + (seed*i % 70) / 100.0f);
-    }
-    
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    CCE_Color color;
-    color = cce_get_color(center_x, center_y, offset_x, offset_y, DefaultCloud);
-    glColor4ub(color.r, color.g, color.b, color.a);
-    
-    for (int i = 0; i < num_blobs; i++)
-    {
-        color = cce_get_color(blobs[i].x, blobs[i].y, 0, 0, DefaultCloud);
-        glColor4ub(color.r, color.g, color.b, color.a);
-        draw_filled_circle(blobs[i].x + offset_x, blobs[i].y + offset_y, blobs[i].radius, 32);
-    }
-    
-    glDisable(GL_BLEND);
-}
-
-void draw_filled_circle(float center_x, float center_y, float radius, int pixel_size)
-{
-    int r = (int)radius;
-    int cx = (int)center_x;
-    int cy = (int)center_y;
-    int r2 = r * r;
-    
-    glBegin(GL_QUADS);
-    
-    for (int y = -r; y <= r; y += pixel_size) {
-        for (int x = -r; x <= r; x += pixel_size) {
-
-            int center_dist = x*x + y*y;
-            if (center_dist <= r2) {
-                float px = cx + x - pixel_size/2;
-                float py = cy + y - pixel_size/2;
-                
-                glVertex2f(px, py);
-                glVertex2f(px + pixel_size, py);
-                glVertex2f(px + pixel_size, py + pixel_size);
-                glVertex2f(px, py + pixel_size);
-            }
-        }
-    }
-    glEnd();
-}
 
 float procedural_noise(int x, int y, int seed)
 {
@@ -113,20 +44,6 @@ float procedural_noise(int x, int y, int seed)
     n = (n >> 13) ^ n;
     n = (n * (n * n * 60493 + 19990303) + 1376312589);
     return (float)(n & 0x7FFFFFFF) / 2147483647.0f;
-}
-
-void draw_pixel(int x, int y, int size, pct r, pct g, pct b, pct a)
-{
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4ub(r, g, b, a);
-    glBegin(GL_QUADS);
-    glVertex2i(x, y);
-    glVertex2i(x + size, y);
-    glVertex2i(x + size, y + size);
-    glVertex2i(x, y + size);
-    glEnd();
-    glDisable(GL_BLEND);
 }
 
 CCE_Layer* create_layer(int screen_w, int screen_h, char * name)
@@ -194,6 +111,20 @@ CCE_Layer* create_layer(int screen_w, int screen_h, char * name)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    // Инициализируем PBO для асинхронной загрузки
+    layer->pbo_size = CHUNK_SIZE * CHUNK_SIZE * 4;  // RGBA = 4 байта на пиксель
+    layer->current_pbo_index = 0;
+    
+    glGenBuffers(2, layer->pbo_ids);
+    
+    // Инициализируем оба PBO
+    for (int i = 0; i < 2; i++) {
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, layer->pbo_ids[i]);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, layer->pbo_size, NULL, GL_STREAM_DRAW);
+    }
+    
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);  // Отвязываем
+
     return layer;
 }
 
@@ -225,6 +156,14 @@ void set_pixel(CCE_Layer* layer, int screen_x, int screen_y, CCE_Color color)
             
             // Записываем пиксель
             int index = local_y * chunk->w + local_x;
+            
+            // Проверяем, действительно ли изменился пиксель
+            CCE_Color old_color = chunk->data[index];
+            if (old_color.r == color.r && old_color.g == color.g && 
+                old_color.b == color.b && old_color.a == color.a) {
+                return;  // Пиксель не изменился, пропускаем
+            }
+            
             chunk->data[index] = color;
             
             // Помечаем весь чанк как грязный
@@ -233,35 +172,129 @@ void set_pixel(CCE_Layer* layer, int screen_x, int screen_y, CCE_Color color)
     }
 }
 
+void set_pixel_rect(CCE_Layer* layer, int x0, int y0, int x1, int y1, CCE_Color color)
+{
+    // Нормализуем координаты
+    if (x0 > x1) { int t = x0; x0 = x1; x1 = t; }
+    if (y0 > y1) { int t = y0; y0 = y1; y1 = t; }
+    
+    // Ограничиваем границы
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= layer->scr_w) x1 = layer->scr_w - 1;
+    if (y1 >= layer->scr_h) y1 = layer->scr_h - 1;
+    
+    if (x0 > x1 || y0 > y1) return;
+    
+    // Определяем затронутые чанки
+    int chunk_x0 = x0 / layer->chunk_size;
+    int chunk_y0 = y0 / layer->chunk_size;
+    int chunk_x1 = x1 / layer->chunk_size;
+    int chunk_y1 = y1 / layer->chunk_size;
+    
+    // Заполняем область батчем
+    for (int cy = chunk_y0; cy <= chunk_y1; cy++) {
+        for (int cx = chunk_x0; cx <= chunk_x1; cx++) {
+            if (cx < 0 || cx >= layer->chunk_count_x || 
+                cy < 0 || cy >= layer->chunk_count_y) continue;
+            
+            CCE_Chunk* chunk = layer->chunks[cy][cx];
+            
+            // Вычисляем область пересечения
+            int chunk_screen_x = cx * layer->chunk_size;
+            int chunk_screen_y = cy * layer->chunk_size;
+            
+            int local_x0 = (x0 > chunk_screen_x) ? (x0 - chunk_screen_x) : 0;
+            int local_y0 = (y0 > chunk_screen_y) ? (y0 - chunk_screen_y) : 0;
+            int local_x1 = (x1 < chunk_screen_x + chunk->w) ? 
+                           (x1 - chunk_screen_x) : (chunk->w - 1);
+            int local_y1 = (y1 < chunk_screen_y + chunk->h) ? 
+                           (y1 - chunk_screen_y) : (chunk->h - 1);
+            
+            // Заполняем область батчем
+            for (int ly = local_y0; ly <= local_y1; ly++) {
+                for (int lx = local_x0; lx <= local_x1; lx++) {
+                    int index = ly * chunk->w + lx;
+                    chunk->data[index] = color;
+                }
+            }
+            
+            chunk->dirty = true;
+        }
+    }
+}
+
+
 void update_dirty_chunks(CCE_Layer* layer)
 {
+    if (!layer) return;
+    
     glBindTexture(GL_TEXTURE_2D, layer->texture);
     
     int updated = 0;
-    for (int y = 0; y < layer->chunk_count_y; y++) {
-        for (int x = 0; x < layer->chunk_count_x; x++) {
+    
+    // Собираем список грязных чанков
+    CCE_Chunk* dirty_chunks[256];  // Максимум 256 чанков за кадр
+    int dirty_count = 0;
+    
+    for (int y = 0; y < layer->chunk_count_y && dirty_count < 256; y++) {
+        for (int x = 0; x < layer->chunk_count_x && dirty_count < 256; x++) {
             CCE_Chunk* chunk = layer->chunks[y][x];
             
             if (chunk->dirty && chunk->visible) {
-                // Вычисляем экранные координаты чанка
-                int screen_x = x * layer->chunk_size;
-                int screen_y = y * layer->chunk_size;
-                
-                // Копируем чанк в текстуру
-                glTexSubImage2D(GL_TEXTURE_2D, 0,
-                               screen_x, screen_y,
-                               chunk->w, chunk->h,
-                               GL_RGBA, GL_UNSIGNED_BYTE,
-                               chunk->data);
-                
-                chunk->dirty = false;  // Сбросить флаг
-                updated++;
+                dirty_chunks[dirty_count++] = chunk;
             }
         }
     }
+    
+    // Обновляем чанки через PBO (асинхронно)
+    for (int i = 0; i < dirty_count; i++) {
+        CCE_Chunk* chunk = dirty_chunks[i];
+        
+        int screen_x = chunk->x * layer->chunk_size;
+        int screen_y = chunk->y * layer->chunk_size;
+        
+        int chunk_data_size = chunk->w * chunk->h * 4;  // RGBA
+        
+        // Если размер чанка больше PBO, используем прямой метод
+        if (chunk_data_size > layer->pbo_size) {
+            // Fallback на синхронный метод для больших чанков
+            glTexSubImage2D(GL_TEXTURE_2D, 0,
+                           screen_x, screen_y,
+                           chunk->w, chunk->h,
+                           GL_RGBA, GL_UNSIGNED_BYTE,
+                           chunk->data);
+        } else {
+            // Переключаемся на следующий PBO (двойная буферизация)
+            layer->current_pbo_index = (layer->current_pbo_index + 1) % 2;
+            int pbo_index = layer->pbo_ids[layer->current_pbo_index];
+            
+            // Привязываем PBO
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo_index);
+            
+            // Записываем данные в PBO
+            glBufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, chunk_data_size, chunk->data);
+            
+            // Загружаем из PBO в текстуру (асинхронная операция!)
+            // offset = 0, потому что мы записали данные в начало PBO
+            glTexSubImage2D(GL_TEXTURE_2D, 0,
+                           screen_x, screen_y,
+                           chunk->w, chunk->h,
+                           GL_RGBA, GL_UNSIGNED_BYTE,
+                           0);  // offset = 0, данные берутся из привязанного PBO
+            
+            // Отвязываем PBO
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        }
+        
+        chunk->dirty = false;
+        updated++;
+    }
 
-    if (updated > 0 && CCE_DEBUG == 1)
-    { cce_printf("Dirty chunks updated: %d on %s\n", updated, layer->name); }
+    if (updated > 0 && CCE_DEBUG == 1) {
+        cce_printf("Dirty chunks updated: %d/%d on %s\n", 
+                   updated, dirty_count, layer->name);
+    }
 }
 
 void render_layer(CCE_Layer* layer)
@@ -293,16 +326,20 @@ void render_pie(CCE_Layer** layers, int count)
 {
     if (!layers || count <= 0) return;
     
+    // Обновляем грязные чанки для всех слоев ПЕРЕД рендерингом
+    for (int i = 0; i < count; i++) {
+        if (!layers[i] || !layers[i]->enabled) continue;
+        update_dirty_chunks(layers[i]);
+    }
+    
     // Включаем текстуры и блендинг ОДИН РАЗ для всех слоёв
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
+    // Теперь рендерим все слои
     for (int i = 0; i < count; i++) {
         if (!layers[i] || !layers[i]->enabled) continue;
-        
-        // Обновляем только грязные чанки этого слоя
-        update_dirty_chunks(layers[i]);
         
         // Привязываем текстуру слоя
         glBindTexture(GL_TEXTURE_2D, layers[i]->texture);
@@ -324,6 +361,11 @@ void render_pie(CCE_Layer** layers, int count)
 void destroy_layer(CCE_Layer* layer)
 {
     if (!layer) return;
+    
+    // Удаляем PBO
+    if (layer->pbo_ids[0] != 0 || layer->pbo_ids[1] != 0) {
+        glDeleteBuffers(2, layer->pbo_ids);
+    }
     
     for (int y = 0; y < layer->chunk_count_y; y++) {
         for (int x = 0; x < layer->chunk_count_x; x++) {

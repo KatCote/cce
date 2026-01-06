@@ -11,15 +11,7 @@ test-window:
 	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
 	$@/$@.out
 
-test-pixel-grid:
-	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
-	$@/$@.out
-
 test-moving-grid:
-	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
-	$@/$@.out
-
-test-text:
 	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
 	$@/$@.out
 
@@ -27,7 +19,7 @@ test-chunk:
 	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
 	$@/$@.out
 
-test-all: test-window test-pixel-grid test-moving-grid test-text test-chunk
+test-all: test-window test-moving-grid test-chunk
 
 clean:
 	rm -f test_window/test_*.out

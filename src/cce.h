@@ -1,7 +1,7 @@
 #ifndef CCE_GUARD_H
 #define CCE_GUARD_H
 
-#define CCE_VERSION "0.1.1"
+#define CCE_VERSION "0.1.2"
 #define CCE_VERNAME "Initial"
 #define CCE_NAME    "CastleCore Engine"
 
@@ -98,6 +98,9 @@ struct CCE_Layer
     char* name;
     int layer_id;
     bool enabled;
+    unsigned int pbo_ids[2];
+    int current_pbo_index;
+    int pbo_size;
 };
 
 typedef enum CCE_Palette
@@ -119,11 +122,9 @@ typedef struct CCE_Layer CCE_Layer;
 
 void cce_setup_2d_projection(int width, int height);
 
-void cce_draw_grid(int x0, int y0, int x1, int y1, int pixel_size, int offset_x, int offset_y, CCE_Palette palette);    // Deprecated
-void cce_draw_cloud(int center_x, int center_y, int offset_x, int offset_y, float size, int seed);                  // Deprecated
-
 CCE_Color cce_get_color(int pos_x, int pos_y, int offset_x, int offset_y, CCE_Palette palette, ...);
 void set_pixel(CCE_Layer* layer, int screen_x, int screen_y, CCE_Color color);
+void set_pixel_rect(CCE_Layer* layer, int x0, int y0, int x1, int y1, CCE_Color color);
 
 CCE_Layer* create_layer(int screen_w, int screen_h, char * name);
 void render_layer(CCE_Layer* layer);

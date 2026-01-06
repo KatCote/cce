@@ -52,3 +52,29 @@ int cce_fps_timer_should_update(CCE_FPS_Timer* timer) {
     
     return 0;
 }
+
+void cce_fps_timer_destroy(CCE_FPS_Timer* timer) {
+    if (timer) {
+        free(timer);
+    }
+}
+
+double cce_fps_timer_get_fps(CCE_FPS_Timer* timer) {
+    if (timer) {
+        return timer->fps;
+    }
+    return 0.0;
+}
+
+double cce_fps_timer_get_delta(CCE_FPS_Timer* timer) {
+    if (timer) {
+        return timer->frame_time;
+    }
+    return 0.0;
+}
+
+void cce_fps_timer_update(CCE_FPS_Timer* timer) {
+    // This function can be used to manually update the timer
+    // For now, it's a no-op as should_update handles everything
+    (void)timer;
+}
