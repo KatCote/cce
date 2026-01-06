@@ -5,6 +5,7 @@ SRCS = \
 	src/engine/init/init.c \
 	src/engine/render/render.c \
 	src/engine/text/text.c \
+	src/engine/timer/timer.c \
 
 INCLUDES = \
 	-Isrc \
@@ -14,6 +15,7 @@ INCLUDES = \
 	-Isrc/engine/init \
 	-Isrc/engine/render \
 	-Isrc/engine/text \
+	-Isrc/engine/timer \
 
 CFLAGS = -std=c23 -Wall -Wextra -fPIC
 

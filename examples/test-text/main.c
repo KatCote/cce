@@ -28,6 +28,8 @@ int main() {
 
     TTF_Font* font = ttf_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
     TTF_Font* font2 = ttf_font_load("/home/katcote/cce/examples/fonts/Keleti-Regular.ttf", 24*3 + 5);
+
+    ttf_font_set_scale(font, 5.0f);
     
     int frame = 0;
     static int a = 0;
@@ -40,7 +42,7 @@ int main() {
         cce_draw_grid(0, 0, width, height, 7, frame * 7, frame * 7, DefaultGrass);
         
         ttf_render_text(font2, "1234567890\nABCDEFGHI\nJKLMNOPQRS\nTUVWXYZ\n(){}[].,?!<>", 100, 100, DefaultLight);
-        ttf_render_text(font, "1234567890\nABCDEFGHI\nJKLMNOPQRS\nTUVWXYZ\n(){}[].,?!<>", width - 150, 100, DefaultDark);
+        ttf_render_text(font, "1234567890\nABCDEFGHI\nJKLMNOPQRS\nTUVWXYZ\n(){}[].,?!<>", width - 500, 100, DefaultDark);
 
         cce_window_swap_buffers(window);
         cce_window_poll_events();

@@ -24,7 +24,7 @@ void cce_setup_2d_projection(int width, int height)
     glLoadIdentity();
 }
 
-void cce_draw_grid(int x0, int y0, int x1, int y1, int pixel_size, int offset_x, int offset_y, Palette palette)
+void cce_draw_grid(int x0, int y0, int x1, int y1, int pixel_size, int offset_x, int offset_y, CCE_Palette palette)
 {
     if ((x0 > x1) || (y0 > y1)) { cce_printf("Wrong grid size!\n"); ERRLOG; return; }
     if (pixel_size < 1) { cce_printf("Wrong pixel size!\n"); ERRLOG; return; }
@@ -32,7 +32,7 @@ void cce_draw_grid(int x0, int y0, int x1, int y1, int pixel_size, int offset_x,
     int cols = (x1 + pixel_size - 1) / pixel_size;
     int rows = (y1 + pixel_size - 1) / pixel_size;
 
-    cce_color color;
+    CCE_Color color;
     
     for (int row = 0; row < rows; row++)
     {
@@ -66,7 +66,7 @@ void cce_draw_cloud(int center_x, int center_y, int offset_x, int offset_y, floa
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    cce_color color;
+    CCE_Color color;
     color = cce_get_color(center_x, center_y, offset_x, offset_y, DefaultCloud);
     glColor4ub(color.r, color.g, color.b, color.a);
     
@@ -129,31 +129,39 @@ void draw_pixel(int x, int y, int size, pct r, pct g, pct b, pct a)
     glDisable(GL_BLEND);
 }
 
-Layer* create_layer(int screen_w, int screen_h, char * name)
+CCE_Layer* create_layer(int screen_w, int screen_h, char * name)
 {
-    Layer* layer = malloc(sizeof(Layer));
+    CCE_Layer* layer = malloc(sizeof(CCE_Layer));
     layer->scr_w = screen_w;
     layer->scr_h = screen_h;
     layer->chunk_size = CHUNK_SIZE;
+    layer->enabled = true;
 
     // Округление вверх для количества чанков
     layer->chunk_count_x = (screen_w + CHUNK_SIZE - 1) / CHUNK_SIZE;
     layer->chunk_count_y = (screen_h + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
+    if (name) {
+        layer->name = malloc(strlen(name) + 1);
+        strcpy(layer->name, name);
+    } else {
+        layer->name = malloc(1);
+        layer->name[0] = '\0';
+    }
+
     // Выделяем память под массив указателей на строки чанков
-    layer->chunks = malloc(layer->chunk_count_y * sizeof(Chunk**));
+    layer->chunks = malloc(layer->chunk_count_y * sizeof(CCE_Chunk**));
     //layer->name = malloc(strlen(name) * sizeof(char));
-    strcpy(layer->name, name);
 
     cce_printf("New Layer: screen %dx%d, chunks %dx%d, name \"%s\"\n", 
         screen_w, screen_h, layer->chunk_count_x, layer->chunk_count_y, layer->name);
 
     for (int y = 0; y < layer->chunk_count_y; y++) {
         // Выделяем строку чанков
-        layer->chunks[y] = malloc(layer->chunk_count_x * sizeof(Chunk*));
+        layer->chunks[y] = malloc(layer->chunk_count_x * sizeof(CCE_Chunk*));
       
         for (int x = 0; x < layer->chunk_count_x; x++) {
-            Chunk* chunk = (Chunk*)malloc(sizeof(Chunk));
+            CCE_Chunk* chunk = (CCE_Chunk*)malloc(sizeof(CCE_Chunk));
             chunk->x = x;
             chunk->y = y;
             
@@ -164,8 +172,8 @@ Layer* create_layer(int screen_w, int screen_h, char * name)
                 screen_h - y * CHUNK_SIZE : CHUNK_SIZE;
             
             // Выделяем и очищаем память под пиксели
-            chunk->data = malloc(chunk->w * chunk->h * sizeof(cce_color));
-            memset(chunk->data, 0, chunk->w * chunk->h * sizeof(cce_color));
+            chunk->data = malloc(chunk->w * chunk->h * sizeof(CCE_Color));
+            memset(chunk->data, 0, chunk->w * chunk->h * sizeof(CCE_Color));
             
             chunk->dirty = true;  // Помечаем как грязный изначально
             chunk->visible = true;
@@ -189,7 +197,7 @@ Layer* create_layer(int screen_w, int screen_h, char * name)
     return layer;
 }
 
-void set_pixel(Layer* layer, int screen_x, int screen_y, cce_color color)
+void set_pixel(CCE_Layer* layer, int screen_x, int screen_y, CCE_Color color)
 {
     // Проверяем границы экрана
     if (screen_x < 0 || screen_x >= layer->scr_w || 
@@ -205,7 +213,7 @@ void set_pixel(Layer* layer, int screen_x, int screen_y, cce_color color)
     if (chunk_x >= 0 && chunk_x < layer->chunk_count_x && 
         chunk_y >= 0 && chunk_y < layer->chunk_count_y) {
         
-        Chunk* chunk = layer->chunks[chunk_y][chunk_x];
+        CCE_Chunk* chunk = layer->chunks[chunk_y][chunk_x];
         
         // Локальные координаты внутри чанка
         int local_x = screen_x % layer->chunk_size;
@@ -225,14 +233,14 @@ void set_pixel(Layer* layer, int screen_x, int screen_y, cce_color color)
     }
 }
 
-void update_dirty_chunks(Layer* layer)
+void update_dirty_chunks(CCE_Layer* layer)
 {
     glBindTexture(GL_TEXTURE_2D, layer->texture);
     
     int updated = 0;
     for (int y = 0; y < layer->chunk_count_y; y++) {
         for (int x = 0; x < layer->chunk_count_x; x++) {
-            Chunk* chunk = layer->chunks[y][x];
+            CCE_Chunk* chunk = layer->chunks[y][x];
             
             if (chunk->dirty && chunk->visible) {
                 // Вычисляем экранные координаты чанка
@@ -253,10 +261,10 @@ void update_dirty_chunks(Layer* layer)
     }
 
     if (updated > 0 && CCE_DEBUG == 1)
-    { cce_printf("Dirty chunks updated: %d\n", updated); }
+    { cce_printf("Dirty chunks updated: %d on %s\n", updated, layer->name); }
 }
 
-void render_layer(Layer* layer)
+void render_layer(CCE_Layer* layer)
 {
     // Обновляем только грязные чанки
     update_dirty_chunks(layer);
@@ -281,7 +289,39 @@ void render_layer(Layer* layer)
     glDisable(GL_TEXTURE_2D);
 }
 
-void destroy_layer(Layer* layer)
+void render_pie(CCE_Layer** layers, int count)
+{
+    if (!layers || count <= 0) return;
+    
+    // Включаем текстуры и блендинг ОДИН РАЗ для всех слоёв
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    for (int i = 0; i < count; i++) {
+        if (!layers[i] || !layers[i]->enabled) continue;
+        
+        // Обновляем только грязные чанки этого слоя
+        update_dirty_chunks(layers[i]);
+        
+        // Привязываем текстуру слоя
+        glBindTexture(GL_TEXTURE_2D, layers[i]->texture);
+        
+        // Рисуем слой
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
+        glTexCoord2f(1.0f, 0.0f); glVertex2f((float)layers[i]->scr_w, 0.0f);
+        glTexCoord2f(1.0f, 1.0f); glVertex2f((float)layers[i]->scr_w, (float)layers[i]->scr_h);
+        glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, (float)layers[i]->scr_h);
+        glEnd();
+    }
+    
+    // Выключаем после отрисовки всех слоёв
+    glDisable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+}
+
+void destroy_layer(CCE_Layer* layer)
 {
     if (!layer) return;
     
@@ -295,6 +335,8 @@ void destroy_layer(Layer* layer)
     free(layer->chunks);
 
     cce_printf("Destroying Layer: name \"%s\"\n", layer->name);
+
+    if (layer->name) { free(layer->name); }
     
     glDeleteTextures(1, &layer->texture);
     free(layer);
@@ -304,7 +346,7 @@ void test_simple()
 {
     // Тест 1: Простая текстура без чанков
     int w = 550, h = 550;
-    cce_color* pixels = malloc(w * h * sizeof(cce_color));
+    CCE_Color* pixels = malloc(w * h * sizeof(CCE_Color));
     
     // Заливаем белым
     for (int i = 0; i < w * h; i++) {
@@ -354,9 +396,9 @@ void test_simple()
     free(pixels);
 }
 
-cce_color cce_get_color(int pos_x, int pos_y, int offset_x, int offset_y, Palette palette, ...)
+CCE_Color cce_get_color(int pos_x, int pos_y, int offset_x, int offset_y, CCE_Palette palette, ...)
 {
-    cce_color ret;
+    CCE_Color ret;
     pct noise = (pct) ((procedural_noise(pos_x + offset_x, pos_y + offset_y, engine_seed + palette)) * 255);
 
     switch (palette)

@@ -22,6 +22,8 @@ struct TTF_Font {
     float scale;
     int first_char;
     int num_chars;
+    unsigned char* ttf_data;
+    long ttf_data_size;
 };
 
 #endif
@@ -92,7 +94,10 @@ TTF_Font* ttf_font_load(const char* filename, float font_size)
     stbtt_InitFont(&info, ttf_data, 0);
     font->scale = stbtt_ScaleForPixelHeight(&info, font_size);
     
-    free(ttf_data);
+    // Store TTF data for rasterization
+    font->ttf_data = ttf_data;
+    font->ttf_data_size = file_size;
+    
     free(temp_bitmap);
     free(rgba_bitmap);
     
@@ -104,15 +109,18 @@ void ttf_font_free(TTF_Font* font)
     if (font) {
         glDeleteTextures(1, &font->texture_id);
         free(font->char_data);
+        if (font->ttf_data) {
+            free(font->ttf_data);
+        }
         free(font);
     }
 }
 
-void ttf_render_text(TTF_Font* font, const char* text, float x, float y, Palette palette, ...)
+void ttf_render_text(TTF_Font* font, const char* text, float x, float y, CCE_Palette palette, ...)
 {
     if (!font || !text) return;
 
-    cce_color color;
+    CCE_Color color;
 
     if (palette != Manual)
     {
@@ -199,4 +207,131 @@ float ttf_text_width(TTF_Font* font, const char* text)
     }
     
     return width;
+}
+
+void ttf_render_text_to_layer(CCE_Layer* layer, TTF_Font* font, const char* text, 
+                               int x, int y, float scale, CCE_Color color)
+{
+    if (!layer || !font || !text || !font->ttf_data) return;
+    
+    stbtt_fontinfo info;
+    if (!stbtt_InitFont(&info, font->ttf_data, 0)) {
+        return;
+    }
+    
+    // Calculate the actual scale (font scale * user scale)
+    float actual_scale = font->scale * scale;
+    
+    // Get font metrics for baseline
+    int ascent, descent, line_gap;
+    stbtt_GetFontVMetrics(&info, &ascent, &descent, &line_gap);
+    
+    float current_x = (float)x;
+    float current_y = (float)y;
+    float start_x = current_x;
+    
+    while (*text) {
+        if (*text == '\n') {
+            current_y += (ascent - descent + line_gap) * actual_scale;
+            current_x = start_x;
+            text++;
+            continue;
+        }
+        
+        int codepoint = (unsigned char)*text;
+        
+        // Get character metrics
+        int advance_width, left_side_bearing;
+        stbtt_GetCodepointHMetrics(&info, codepoint, &advance_width, &left_side_bearing);
+        
+        // Get bitmap box to determine size
+        int ix0, iy0, ix1, iy1;
+        stbtt_GetCodepointBitmapBox(&info, codepoint, actual_scale, actual_scale, &ix0, &iy0, &ix1, &iy1);
+        
+        int bitmap_width = ix1 - ix0;
+        int bitmap_height = iy1 - iy0;
+        
+        if (bitmap_width > 0 && bitmap_height > 0) {
+            // Allocate bitmap buffer
+            unsigned char* bitmap = malloc(bitmap_width * bitmap_height);
+            if (bitmap) {
+                // Render glyph to bitmap
+                stbtt_MakeCodepointBitmap(&info, bitmap, bitmap_width, bitmap_height, 
+                                         bitmap_width, actual_scale, actual_scale, codepoint);
+                
+                // Calculate position
+                // stb_truetype uses y-up coordinate system (y=0 at baseline, y increases upward)
+                // layer uses y-down coordinate system (y=0 at top, y increases downward)
+                // ix0, iy0 is top-left of bitmap in font coords (iy0 is negative, above baseline)
+                // To convert: layer_y = baseline_y + font_y (since layer y increases downward)
+                int base_x = (int)(current_x + left_side_bearing * actual_scale + ix0);
+                int base_y = (int)(current_y + iy0); // iy0 is negative, so this gives top of bitmap
+                
+                // Write pixels to layer
+                for (int by = 0; by < bitmap_height; by++) {
+                    for (int bx = 0; bx < bitmap_width; bx++) {
+                        unsigned char alpha = bitmap[by * bitmap_width + bx];
+                        if (alpha > 0) {
+                            int px = base_x + bx;
+                            int py = base_y + by;
+                            
+                            // Blend color with alpha
+                            CCE_Color pixel_color;
+                            pixel_color.r = (unsigned char)((color.r * alpha) / 255);
+                            pixel_color.g = (unsigned char)((color.g * alpha) / 255);
+                            pixel_color.b = (unsigned char)((color.b * alpha) / 255);
+                            pixel_color.a = (unsigned char)((color.a * alpha) / 255);
+                            
+                            set_pixel(layer, px, py, pixel_color);
+                        }
+                    }
+                }
+                
+                free(bitmap);
+            }
+        }
+        
+        // Advance to next character
+        current_x += advance_width * actual_scale;
+        text++;
+    }
+}
+
+void ttf_render_text_to_layer_fmt(CCE_Layer* layer, TTF_Font* font, 
+                                   int x, int y, float scale, CCE_Color color,
+                                   const char* format, ...)
+{
+    if (!layer || !font || !format) return;
+    
+    // Try with a fixed-size buffer first (sufficient for most cases like FPS)
+    char static_buffer[256];
+    va_list args;
+    va_start(args, format);
+    int needed = vsnprintf(static_buffer, sizeof(static_buffer), format, args);
+    va_end(args);
+    
+    char* buffer = static_buffer;
+    char* dynamic_buffer = NULL;
+    
+    // If the formatted string doesn't fit, allocate a larger buffer
+    if (needed >= (int)sizeof(static_buffer)) {
+        dynamic_buffer = malloc(needed + 1);
+        if (dynamic_buffer) {
+            va_start(args, format);
+            vsnprintf(dynamic_buffer, needed + 1, format, args);
+            va_end(args);
+            buffer = dynamic_buffer;
+        } else {
+            // If allocation fails, use truncated version from static buffer
+            buffer = static_buffer;
+        }
+    }
+    
+    // Call the actual rendering function
+    ttf_render_text_to_layer(layer, font, buffer, x, y, scale, color);
+    
+    // Free dynamically allocated buffer if used
+    if (dynamic_buffer) {
+        free(dynamic_buffer);
+    }
 }

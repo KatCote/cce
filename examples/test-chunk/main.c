@@ -10,7 +10,7 @@ int main() {
     int width = 1920;
     int height = 1080;
     
-    printf("=== CCE Chunks Test ===\n");
+    printf("=== CCE Chunk Layers Test ===\n");
 
     set_engine_seed(1337);
     
@@ -22,19 +22,25 @@ int main() {
     set_engine_msaa(4);
     
     Window* window = cce_window_create(width, height, 
-        CCE_NAME " " CCE_VERSION " | " "Chunks");
+        CCE_NAME " " CCE_VERSION " | " "Chunk Layers");
     
     if (!window) {
         printf("Window creation failed\n");
         cce_engine_cleanup();
         return -1;
     }
+
+    CCE_FPS_Timer* timer = cce_fps_timer_create(60.0);
+
+    TTF_Font* font = ttf_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
     
     cce_setup_2d_projection(width, height);
 
-    Layer* layer = create_layer(width, height, "TCM1");
+    CCE_Layer* background = create_layer(width, height, "Background");
     
-    cce_color* background_buffer = malloc(width * height * sizeof(cce_color));
+    CCE_Layer* foreground = create_layer(width, height, "Foreground");
+
+    CCE_Layer* text_layer = create_layer(width, height, "Text Layer");
     
     int chunk_count_x = (width + get_engine_chunk_size() - 1) / get_engine_chunk_size();
     int chunk_count_y = (height + get_engine_chunk_size() - 1) / get_engine_chunk_size();
@@ -55,9 +61,8 @@ int main() {
             
             for (int y = start_y; y < end_y; y++) {
                 for (int x = start_x; x < end_x; x++) {
-                    cce_color color = cce_get_color(0, 0, 0, 0, Manual, r, g, b, 255);
-                    background_buffer[y * width + x] = color;
-                    set_pixel(layer, x, y, color);
+                    CCE_Color color = cce_get_color(0, 0, 0, 0, Manual, r, g, b, 255);
+                    set_pixel(background, x, y, color);
                 }
             }
         }
@@ -87,112 +92,127 @@ int main() {
     prev_circle_right = (int)(circle_x + circle_radius);
     prev_circle_top = (int)(circle_y - circle_radius);
     prev_circle_bottom = (int)(circle_y + circle_radius);
+
+    float fps = 0.0f;
     
     int frame = 0;
     
-    while (cce_window_should_close(window) == 0 && frame < get_engine_chunk_size())
+    while (cce_window_should_close(window) == 0 && frame < 6000)
     {
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        
-        for (int y = prev_square_top; y < prev_square_bottom; y++) {
-            for (int x = prev_square_left; x < prev_square_right; x++) {
-                if (x >= 0 && x < width && y >= 0 && y < height) {
-                    set_pixel(layer, x, y, background_buffer[y * width + x]);
-                }
-            }
-        }
-        
-        int prev_circle_r2 = (int)(circle_radius * circle_radius);
-        for (int y = prev_circle_top; y < prev_circle_bottom; y++) {
-            for (int x = prev_circle_left; x < prev_circle_right; x++) {
-                if (x >= 0 && x < width && y >= 0 && y < height) {
-                    int dx = x - (int)(circle_x - circle_speed_x);
-                    int dy = y - (int)(circle_y - circle_speed_y);
-                    
-                    if (dx*dx + dy*dy <= prev_circle_r2) {
-                        set_pixel(layer, x, y, background_buffer[y * width + x]);
-                    }
-                }
-            }
-        }
+        if (cce_fps_timer_should_update(timer))
+        {
+            if (frame % 5 == 0)
+            { 
+                CCE_Color text_color = cce_get_color(0, 0, 0, 0, Empty);
+                ttf_render_text_to_layer_fmt(text_layer, font, 50, 80, 1.0f, text_color, "FPS: %.1f", fps);
 
-        square_x += square_speed_x;
-        square_y += square_speed_y;
-        
-        if (square_x < square_size / 2 || square_x > width - square_size / 2) {
-            square_speed_x = -square_speed_x;
-            square_x += square_speed_x;
-        }
-        if (square_y < square_size / 2 || square_y > height - square_size / 2) {
-            square_speed_y = -square_speed_y;
-            square_y += square_speed_y;
-        }
-        
-        circle_x += circle_speed_x;
-        circle_y += circle_speed_y;
-        
-        if (circle_x < circle_radius || circle_x > width - circle_radius) {
-            circle_speed_x = -circle_speed_x;
-            circle_x += circle_speed_x;
-        }
-        if (circle_y < circle_radius || circle_y > height - circle_radius) {
-            circle_speed_y = -circle_speed_y;
-            circle_y += circle_speed_y;
-        }
-        
-        prev_square_left = (int)(square_x - square_size / 2);
-        prev_square_right = (int)(square_x + square_size / 2);
-        prev_square_top = (int)(square_y - square_size / 2);
-        prev_square_bottom = (int)(square_y + square_size / 2);
-        
-        prev_circle_left = (int)(circle_x - circle_radius);
-        prev_circle_right = (int)(circle_x + circle_radius);
-        prev_circle_top = (int)(circle_y - circle_radius);
-        prev_circle_bottom = (int)(circle_y + circle_radius);
-        
-        for (int y = prev_square_top; y < prev_square_bottom; y++) {
-            for (int x = prev_square_left; x < prev_square_right; x++) {
-                if (x >= 0 && x < width && y >= 0 && y < height) {
-                    set_pixel(layer, x, y, cce_get_color(0, 0, 0, 0, Red));
-                }
+                fps = timer->fps;
+
+                text_color = cce_get_color(0, 0, 0, 0, DefaultLight);
+                ttf_render_text_to_layer_fmt(text_layer, font, 50, 80, 1.0f, text_color, "FPS: %.1f", fps);
             }
-        }
-        
-        int circle_r2 = (int)(circle_radius * circle_radius);
-        for (int y = prev_circle_top; y < prev_circle_bottom; y++) {
-            for (int x = prev_circle_left; x < prev_circle_right; x++) {
-                if (x >= 0 && x < width && y >= 0 && y < height) {
-                    int dx = x - (int)circle_x;
-                    int dy = y - (int)circle_y;
-                    
-                    if (dx*dx + dy*dy <= circle_r2) {
-                        set_pixel(layer, x, y, cce_get_color(0, 0, 0, 0, Green));
+
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            
+            for (int y = prev_square_top; y < prev_square_bottom; y++) {
+                for (int x = prev_square_left; x < prev_square_right; x++) {
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Empty));
                     }
                 }
             }
+            
+            int prev_circle_r2 = (int)(circle_radius * circle_radius);
+            for (int y = prev_circle_top; y < prev_circle_bottom; y++) {
+                for (int x = prev_circle_left; x < prev_circle_right; x++) {
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        int dx = x - (int)(circle_x - circle_speed_x);
+                        int dy = y - (int)(circle_y - circle_speed_y);
+                        
+                        if (dx*dx + dy*dy <= prev_circle_r2) {
+                            set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Empty));
+                        }
+                    }
+                }
+            }
+
+            square_x += square_speed_x;
+            square_y += square_speed_y;
+            
+            if (square_x < square_size / 2 || square_x > width - square_size / 2) {
+                square_speed_x = -square_speed_x;
+                square_x += square_speed_x;
+            }
+            if (square_y < square_size / 2 || square_y > height - square_size / 2) {
+                square_speed_y = -square_speed_y;
+                square_y += square_speed_y;
+            }
+            
+            circle_x += circle_speed_x;
+            circle_y += circle_speed_y;
+            
+            if (circle_x < circle_radius || circle_x > width - circle_radius) {
+                circle_speed_x = -circle_speed_x;
+                circle_x += circle_speed_x;
+            }
+            if (circle_y < circle_radius || circle_y > height - circle_radius) {
+                circle_speed_y = -circle_speed_y;
+                circle_y += circle_speed_y;
+            }
+            
+            prev_square_left = (int)(square_x - square_size / 2);
+            prev_square_right = (int)(square_x + square_size / 2);
+            prev_square_top = (int)(square_y - square_size / 2);
+            prev_square_bottom = (int)(square_y + square_size / 2);
+            
+            prev_circle_left = (int)(circle_x - circle_radius);
+            prev_circle_right = (int)(circle_x + circle_radius);
+            prev_circle_top = (int)(circle_y - circle_radius);
+            prev_circle_bottom = (int)(circle_y + circle_radius);
+            
+            for (int y = prev_square_top; y < prev_square_bottom; y++) {
+                for (int x = prev_square_left; x < prev_square_right; x++) {
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Manual, 255, 0, 0, 125));
+                    }
+                }
+            }
+            
+            int circle_r2 = (int)(circle_radius * circle_radius);
+            for (int y = prev_circle_top; y < prev_circle_bottom; y++) {
+                for (int x = prev_circle_left; x < prev_circle_right; x++) {
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        int dx = x - (int)circle_x;
+                        int dy = y - (int)circle_y;
+                        
+                        if (dx*dx + dy*dy <= circle_r2) {
+                            set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Green));
+                        }
+                    }
+                }
+            }
+            
+            set_pixel(foreground, width/2, height/2, cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255));
+                
+            CCE_Layer* layers[] = {background, foreground, text_layer};
+            render_pie(layers, 3);
+            
+            cce_window_swap_buffers(window);
+            cce_window_poll_events();
+            
+            frame++;
+            if (frame % 60 == 0) {
+                printf("Frame: %d | Square: (%.0f, %.0f) | Circle: (%.0f, %.0f)\n", 
+                    frame, square_x, square_y, circle_x, circle_y);
+            }
         }
-        
-        set_pixel(layer, width/2, height/2, cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255));
-        
-        render_layer(layer);
-        
-        cce_window_swap_buffers(window);
-        cce_window_poll_events();
-        
-        frame++;
-        if (frame % 60 == 0) {
-            printf("Frame: %d | Square: (%.0f, %.0f) | Circle: (%.0f, %.0f)\n", 
-                   frame, square_x, square_y, circle_x, circle_y);
-        }
-        usleep(16666);
+        usleep(100);
     }
     
-    printf("Тест завершен.\n");
-    
-    free(background_buffer);
-
-    destroy_layer(layer);
+    destroy_layer(foreground);
+    destroy_layer(background);
+    destroy_layer(text_layer);
     
     cce_window_destroy(window);
     cce_engine_cleanup();
