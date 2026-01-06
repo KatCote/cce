@@ -23,3 +23,11 @@
 ### Usage
   - Provided Functionality
   - Tips
+
+</br>
+
+# Support
+### `ETH: 0x2cc3Cc4140ceD9c3393C02B31646550A06dddB9b`
+### `BTC: bc1qcmxhd8wf398eyzjrc4mn09wckkxwhdgzu78ccw`
+### `USDT (JETTON): UQAGSM483_tFeGI6R2Rb_76dLIhM674z1hG5wuC2rTwL9gzX`
+### `XRP: 0x2cc3Cc4140ceD9c3393C02B31646550A06dddB9b`
