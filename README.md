@@ -9,7 +9,7 @@
 
 # Description
 >[!NOTE]
->Total LoC: 7151
+>`Total LoC: 7151`
 
 </br>
 
