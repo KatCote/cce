@@ -39,5 +39,6 @@ int cce_shader_apply_glow(const CCE_Shader* shader, CCE_Layer* layer, float coef
 int cce_shader_create_from_source(CCE_Shader* out, const char* vertex_src, const char* fragment_src, const char* name);
 int cce_shader_create_from_files(CCE_Shader* out, const char* vertex_path, const char* fragment_path, const char* name);
 int cce_shader_apply_bloom(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+int cce_shader_apply_bloom_radius(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, float radius);
 
 #endif

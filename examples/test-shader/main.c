@@ -79,7 +79,7 @@ int main() {
     
     TTF_Font* font = cce_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
 
-    int batch_size = 10;
+    int batch_size = 8;
     
     CCE_Layer* grid_layer1 = create_layer(width, height, "Grid Layer 1");
     CCE_Layer* grid_layer2 = create_layer(width, height, "Grid Layer 2");
@@ -156,7 +156,7 @@ int main() {
             set_pixel_rect(light_layer, 0, 0, width - 1, height - 1, empty);
 
             static int frame_step_anim = 1;
-            if (frame % 12 == 0) {
+            if (frame % 6 == 0) {
                 frame_step_anim = (frame_step_anim == 3) ? 0 : frame_step_anim + 1;
             }
 
@@ -192,8 +192,8 @@ int main() {
             render_pie(base_layers, 5);
 
             // Apply glow shader to the animated fire layer.
-            //cce_shader_apply_glow(&glow_shader, light_layer, 1.0f);
-            cce_shader_apply_bloom(&bloom_shader, light_layer, 1.0f);
+            cce_shader_apply_glow(&glow_shader, light_layer, 0.1f);
+            cce_shader_apply_bloom_radius(&bloom_shader, light_layer, 1.0f, 8.0f);
 
             // Draw HUD/text on top.
             // CCE_Layer* hud_layers[] = {light_layer, text_layer};

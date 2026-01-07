@@ -19,7 +19,7 @@ int main() {
         return -1;
     }
 
-    set_engine_msaa(4);
+    set_engine_msaa(8);
     
     Window* window = cce_window_create(width, height, 
         CCE_NAME " " CCE_VERSION " | " "Chunk Layers");

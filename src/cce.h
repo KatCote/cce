@@ -242,5 +242,6 @@ int cce_shader_apply_tint(const CCE_Shader* shader, CCE_Layer* layer, float coef
 int cce_shader_apply_grayscale(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
 int cce_shader_apply_glow(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
 int cce_shader_apply_bloom(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+int cce_shader_apply_bloom_radius(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, float radius);
 
 #endif

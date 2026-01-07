@@ -6,6 +6,7 @@ out vec4 FragColor;
 uniform sampler2D uTexture;
 uniform vec2 uResolution;
 uniform float uCoefficient;
+uniform float uRadius;
 
 void main()
 {
@@ -16,9 +17,12 @@ void main()
     vec3 thresholded = luma > 0.6 ? base : vec3(0.0);
 
     const float SPREAD = 12.0;
-    const int RADIUS = 8;
-    const float SIGMA = 8.0;
-    const float TWO_SIGMA2 = 2.0 * SIGMA * SIGMA;
+    int RADIUS = 8;
+    if (uRadius > 0.0) {
+        RADIUS = int(clamp(uRadius, 1.0, 64.0));
+    }
+    float SIGMA = max(float(RADIUS), 1.0);
+    float TWO_SIGMA2 = 2.0 * SIGMA * SIGMA;
 
     vec3 blur = vec3(0.0);
     float norm = 0.0;
@@ -36,7 +40,8 @@ void main()
     blur /= max(norm, 1e-4);
 
     float coeff = clamp(uCoefficient, 0.0, 1.0);
-    vec3 color = base + blur * coeff;
+    // Добавляем только ореол, не трогаем исходные пиксели
+    vec3 halo = max(blur - base, 0.0) * coeff;
 
-    FragColor = vec4(color, 1.0);
+    FragColor = vec4(halo, 0.0);
 }
