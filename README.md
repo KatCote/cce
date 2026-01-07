@@ -1,6 +1,5 @@
+<img width="2000" height="1000" alt="CCE_Large" src="https://github.com/user-attachments/assets/1be5949d-43c3-4d34-a3de-2aa5b5d27e6f" />
 # CastleCore Engine
-[//]:![](https://i.postimg.cc/7h4p7jDn/cce.png)
-[//]:#
 >[!WARNING]
 >### WORK IN PROGRESS
 ### A 2D game engine with pixel graphics, providing high performance and flexibility.
