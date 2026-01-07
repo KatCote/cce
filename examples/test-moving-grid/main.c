@@ -125,7 +125,7 @@ int main() {
     
     CCE_FPS_Timer* timer = cce_fps_timer_create(60.0);
     
-    TTF_Font* font = ttf_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
+    TTF_Font* font = cce_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
     
     CCE_Layer* grid_layer1 = create_layer(width, height, "Grid Layer 1");
     CCE_Layer* grid_layer2 = create_layer(width, height, "Grid Layer 2");
@@ -159,7 +159,7 @@ int main() {
             char fps_text[32];
             snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", fps);
             CCE_Color text_color = cce_get_color(0, 0, 0, 0, DefaultLight);
-            ttf_render_text_to_layer(text_layer, font, fps_text, 50, 80, 1.0f, text_color);
+            cce_draw_text(text_layer, font, fps_text, 50, 80, 1.0f, text_color);
             
             CCE_Layer* layers[] = {grid_layer1, grid_layer2, cloud_layer, text_layer};
             render_pie(layers, 4);
@@ -183,7 +183,7 @@ int main() {
     destroy_layer(cloud_layer);
     destroy_layer(text_layer);
     
-    ttf_font_free(font);
+    cce_font_free(font);
     cce_fps_timer_destroy(timer);
     cce_window_destroy(window);
     cce_engine_cleanup();

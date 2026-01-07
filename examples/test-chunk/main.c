@@ -32,7 +32,7 @@ int main() {
 
     CCE_FPS_Timer* timer = cce_fps_timer_create(60.0);
 
-    TTF_Font* font = ttf_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
+    TTF_Font* font = cce_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
     
     cce_setup_2d_projection(width, height);
 
@@ -104,12 +104,12 @@ int main() {
             if (frame % 5 == 0)
             { 
                 CCE_Color text_color = cce_get_color(0, 0, 0, 0, Empty);
-                ttf_render_text_to_layer_fmt(text_layer, font, 50, 80, 1.0f, text_color, "FPS: %.1f", fps);
+                cce_draw_text_fmt(text_layer, font, 50, 80, 1.0f, text_color, "FPS: %.1f", fps);
 
                 fps = timer->fps;
 
                 text_color = cce_get_color(0, 0, 0, 0, DefaultLight);
-                ttf_render_text_to_layer_fmt(text_layer, font, 50, 80, 1.0f, text_color, "FPS: %.1f", fps);
+                cce_draw_text_fmt(text_layer, font, 50, 80, 1.0f, text_color, "FPS: %.1f", fps);
             }
 
             glClearColor(0.1f, 0.1f, 0.1f, 1.0f);

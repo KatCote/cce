@@ -7,6 +7,7 @@ SRCS = \
 	src/engine/text/text.c \
 	src/engine/timer/timer.c \
 	src/engine/sprite/sprite.c \
+	src/engine/shader/shader.c \
 
 INCLUDES = \
 	-Isrc \
@@ -18,7 +19,8 @@ INCLUDES = \
 	-Isrc/engine/text \
 	-Isrc/engine/timer \
 	-Isrc/engine/sprite \
-
+	-Isrc/engine/shader \
+	
 CFLAGS = -std=c23 -Wall -Wextra -fPIC -O2
 
 LIBS = -lglfw -lGL -lm

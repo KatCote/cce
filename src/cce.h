@@ -31,7 +31,8 @@ SOFTWARE.
 #define CCE_VERNAME "Initial"
 #define CCE_NAME    "CastleCore Engine"
 
-/* GLFW*/
+/* GLFW */
+
 typedef struct Window Window;
 
 /* CCE */
@@ -163,15 +164,11 @@ void render_pie(CCE_Layer** layers, int count); // This is a rendering of severa
 
 typedef struct TTF_Font TTF_Font;
 
-TTF_Font* ttf_font_load(const char* filename, float font_size);
-void ttf_font_free(TTF_Font* font);
-void ttf_render_text(TTF_Font* font, const char* text, float x, float y, CCE_Palette palette, ...);
-float ttf_text_width(TTF_Font* font, const char* text);
-void ttf_render_text_to_layer(CCE_Layer* layer, TTF_Font* font, const char* text, 
-                               int x, int y, float scale, CCE_Color color);
-void ttf_render_text_to_layer_fmt(CCE_Layer* layer, TTF_Font* font, 
-                                   int x, int y, float scale, CCE_Color color,
-                                   const char* format, ...);
+TTF_Font* cce_font_load(const char* filename, float font_size);
+void cce_font_free(TTF_Font* font);
+float cce_text_width(TTF_Font* font, const char* text);
+void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text, int x, int y, float scale, CCE_Color color);
+void cce_draw_text_fmt(CCE_Layer* layer, TTF_Font* font, int x, int y, float scale, CCE_Color color, const char* format, ...);
 
 /*
     T I M E R
@@ -203,11 +200,11 @@ typedef struct
     int height;
     int channels;      // Always 4 after load (RGBA)
     unsigned char* data;
-} CCE_SpriteImage;
+    char path[256];
+} CCE_Sprite;
 
-int cce_sprite_image_load(const char* filepath, CCE_SpriteImage* out);
-void cce_sprite_image_free(CCE_SpriteImage* img);
-int cce_draw_png_to_layer(CCE_Layer* layer, const CCE_SpriteImage* sprite, int dst_x, int dst_y, int batch_size, CCE_Color modifier, int frame_step_px, int current_step);
-int cce_get_png_height(const char* filepath);
+int cce_sprite_load(CCE_Sprite* out);
+void cce_sprite_free(CCE_Sprite* img);
+int cce_draw_sprite(CCE_Layer* layer, const CCE_Sprite* sprite, int dst_x, int dst_y, int batch_size, CCE_Color modifier, int frame_step_px, int current_step);
 
 #endif

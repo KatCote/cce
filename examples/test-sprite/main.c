@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <GL/gl.h>
 #include <unistd.h>
+#include <string.h>
 
 typedef struct {
     float x, y, radius;
@@ -43,17 +44,19 @@ int main() {
     int height = 1080;
     printf("=== CCE Moving Grid Test (Layers) ===\n");
 
-    CCE_SpriteImage sprite_fireplace = {0};
-    CCE_SpriteImage sprite_fireplace2 = {0};
-    const char* sprite_path = "/home/katcote/cce/examples/test-sprite/assets/StreetFireplace_Empty.png";
-    const char* sprite2_path = "/home/katcote/cce/examples/test-sprite/assets/StreetFireplace.png";
-    if (cce_sprite_image_load(sprite_path, &sprite_fireplace) != 0) {
-        printf("Failed to load sprite: %s\n", sprite_path);
+    CCE_Sprite sprite_fireplace = {0};
+    CCE_Sprite sprite_fireplace2 = {0};
+
+    strcpy(sprite_fireplace.path, "/home/katcote/cce/examples/assets/StreetFireplace_Base.png");
+    strcpy(sprite_fireplace2.path, "/home/katcote/cce/examples/assets/StreetFireplace_Fire.png");
+
+    if (cce_sprite_load(&sprite_fireplace) != 0) {
+        printf("Failed to load sprite: %s\n", sprite_fireplace.path);
         return -1;
     }
-    if (cce_sprite_image_load(sprite2_path, &sprite_fireplace2) != 0) {
-        printf("Failed to load sprite: %s\n", sprite2_path);
-        cce_sprite_image_free(&sprite_fireplace);
+    if (cce_sprite_load(&sprite_fireplace2) != 0) {
+        printf("Failed to load sprite: %s\n", sprite_fireplace2.path);
+        cce_sprite_free(&sprite_fireplace);
         return -1;
     }
 
@@ -61,8 +64,8 @@ int main() {
     
     if (cce_engine_init() != 0) {
         printf("Engine init failed\n");
-        cce_sprite_image_free(&sprite_fireplace);
-        cce_sprite_image_free(&sprite_fireplace2);
+        cce_sprite_free(&sprite_fireplace);
+        cce_sprite_free(&sprite_fireplace2);
         return -1;
     }
 
@@ -79,13 +82,14 @@ int main() {
     
     CCE_FPS_Timer* timer = cce_fps_timer_create(60.0);
     
-    TTF_Font* font = ttf_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
+    TTF_Font* font = cce_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
 
     int batch_size = 10;
     
     CCE_Layer* grid_layer1 = create_layer(width, height, "Grid Layer 1");
     CCE_Layer* grid_layer2 = create_layer(width, height, "Grid Layer 2");
     CCE_Layer* sprite_layer = create_layer(width, height, "Sprite Layer");
+    CCE_Layer* light_layer = create_layer(width, height, "Light Layer");
     CCE_Layer* text_layer = create_layer(width, height, "Text Layer");
     
     printf("Starting pixel grid rendering with layers...\n");
@@ -93,54 +97,99 @@ int main() {
     int frame = 0;
     float fps = 0.0f;
 
-    cce_draw_png_to_layer(
+    cce_draw_sprite(
         sprite_layer,
         &sprite_fireplace,
         width/4 - sprite_fireplace.height/2 * batch_size,
-        height/2 - sprite_fireplace.height/2 * batch_size,
+        height/3 - sprite_fireplace.height/2 * batch_size,
+        batch_size,
+        cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
+        0,
+        0
+    );
+    cce_draw_sprite(
+        sprite_layer,
+        &sprite_fireplace,
+        (width/4)*3 - sprite_fireplace.height/2 * batch_size,
+        height/3 - sprite_fireplace.height/2 * batch_size,
         batch_size,
         cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
         0,
         0
     );
 
-    while (cce_window_should_close(window) == 0 && frame < 6000)
+    cce_draw_sprite(
+        sprite_layer,
+        &sprite_fireplace,
+        width/4 - sprite_fireplace.height/2 * batch_size,
+        (height/3)*2 - sprite_fireplace.height/2 * batch_size,
+        batch_size,
+        cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
+        0,
+        0
+    );
+    cce_draw_sprite(
+        sprite_layer,
+        &sprite_fireplace,
+        (width/4)*3 - sprite_fireplace.height/2 * batch_size,
+        (height/3)*2 - sprite_fireplace.height/2 * batch_size,
+        batch_size,
+        cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
+        0,
+        0
+    );
+    
+    draw_grid_to_layer(grid_layer1, 0, 0, width/2, height, 10, 0, 0, DefaultStone);
+    draw_grid_to_layer(grid_layer2, width/2, 0, width, height, 5, 5, 5, DefaultGrass);
+
+    while (cce_window_should_close(window) == 0 && frame < 60000)
     {
         if (cce_fps_timer_should_update(timer))
         {
             fps = timer->fps;
             
             CCE_Color empty = cce_get_color(0, 0, 0, 0, Empty);
-            set_pixel_rect(grid_layer1, 0, 0, width/2 - 1, height - 1, empty);
-            set_pixel_rect(grid_layer2, width/2, 0, width - 1, height - 1, empty);
             set_pixel_rect(text_layer, 0, 0, width - 1, height - 1, empty);
-            
-            draw_grid_to_layer(grid_layer1, 0, 0, width/2, height, 10, frame * 10, frame * 10, DefaultStone);
-            draw_grid_to_layer(grid_layer2, width/2, 0, width, height, 5, frame * -5, frame * -5, DefaultGrass);
 
-            if (frame % 6 == 0)
+            if (frame % 12 == 0)
             {
-                static int frame_step = 0;
+                static int frame_step = 1;
 
-                cce_draw_png_to_layer(
-                    sprite_layer,
+                cce_draw_sprite(
+                    light_layer,
                     &sprite_fireplace2,
                     (width/4)*3 - sprite_fireplace2.height/2 * batch_size,
-                    height/2 - sprite_fireplace2.height/2 * batch_size,
+                    height/3 - sprite_fireplace2.height/2 * batch_size,
                     batch_size,
                     cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
                     32,
-                    frame_step == 4 ? frame_step = 0 : frame_step++
+                    frame_step == 3 ? frame_step = 0 : ++frame_step
+                );
+            }
+
+            if (frame % 12 == 0)
+            {
+                static int frame_step = 1;
+
+                cce_draw_sprite(
+                    light_layer,
+                    &sprite_fireplace2,
+                    width/4 - sprite_fireplace2.height/2 * batch_size,
+                    (height/3)*2 - sprite_fireplace2.height/2 * batch_size,
+                    batch_size,
+                    cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
+                    32,
+                    frame_step == 3 ? frame_step = 0 : ++frame_step
                 );
             }
             
             char fps_text[32];
             snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", fps);
             CCE_Color text_color = cce_get_color(0, 0, 0, 0, DefaultLight);
-            ttf_render_text_to_layer(text_layer, font, fps_text, 50, 80, 1.0f, text_color);
+            cce_draw_text(text_layer, font, fps_text, 50, 80, 1.0f, text_color);
             
-            CCE_Layer* layers[] = {grid_layer1, grid_layer2, sprite_layer, text_layer};
-            render_pie(layers, 4);
+            CCE_Layer* layers[] = {grid_layer1, grid_layer2, sprite_layer, light_layer, text_layer};
+            render_pie(layers, 5);
             
             cce_window_swap_buffers(window);
             
@@ -159,11 +208,12 @@ int main() {
     destroy_layer(grid_layer1);
     destroy_layer(grid_layer2);
     destroy_layer(sprite_layer);
+    destroy_layer(light_layer);
     destroy_layer(text_layer);
-    cce_sprite_image_free(&sprite_fireplace);
-    cce_sprite_image_free(&sprite_fireplace2);
+    cce_sprite_free(&sprite_fireplace);
+    cce_sprite_free(&sprite_fireplace2);
     
-    ttf_font_free(font);
+    cce_font_free(font);
     cce_fps_timer_destroy(timer);
     cce_window_destroy(window);
     cce_engine_cleanup();

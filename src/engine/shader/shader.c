@@ -24,15 +24,5 @@ SOFTWARE.
 ===========================================================================
 */
 
-#ifndef CCE_TEXT_GUARD_H
-#define CCE_TEXT_GUARD_H
-
+#include "shader.h"
 #include "../engine.h"
-
-void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text, 
-                               int x, int y, float scale, CCE_Color color);
-void cce_draw_text_fmt(CCE_Layer* layer, TTF_Font* font, 
-                                   int x, int y, float scale, CCE_Color color,
-                                   const char* format, ...);
-
-#endif

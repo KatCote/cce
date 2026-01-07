@@ -30,9 +30,9 @@ SOFTWARE.
 #define STB_IMAGE_IMPLEMENTATION
 #include "../../external/stb_image.h"
 
-int cce_sprite_image_load(const char* filepath, CCE_SpriteImage* out)
+int cce_sprite_load(CCE_Sprite* out)
 {
-    if (!filepath || !out) {
+    if (!out->path[0] || !out) {
         ERRLOG;
         return -1;
     }
@@ -40,9 +40,9 @@ int cce_sprite_image_load(const char* filepath, CCE_SpriteImage* out)
     stbi_set_flip_vertically_on_load(0);
 
     int w = 0, h = 0, channels = 0;
-    stbi_uc* data = stbi_load(filepath, &w, &h, &channels, 4);
+    stbi_uc* data = stbi_load(out->path, &w, &h, &channels, 4);
     if (!data) {
-        cce_printf("❌ Failed to load PNG \"%s\": %s\n", filepath, stbi_failure_reason());
+        cce_printf("❌ Failed to load PNG \"%s\": %s\n", out->path, stbi_failure_reason());
         return -1;
     }
 
@@ -54,7 +54,7 @@ int cce_sprite_image_load(const char* filepath, CCE_SpriteImage* out)
     return 0;
 }
 
-void cce_sprite_image_free(CCE_SpriteImage* img)
+void cce_sprite_free(CCE_Sprite* img)
 {
     if (!img || !img->data) return;
     stbi_image_free(img->data);
@@ -64,9 +64,9 @@ void cce_sprite_image_free(CCE_SpriteImage* img)
     img->channels = 0;
 }
 
-int cce_draw_png_to_layer(
+int cce_draw_sprite(
     CCE_Layer* layer,
-    const CCE_SpriteImage* sprite,
+    const CCE_Sprite* sprite,
     int dst_x,
     int dst_y,
     int batch_size,
@@ -140,20 +140,4 @@ int cce_draw_png_to_layer(
     }
 
     return 0;
-}
-
-int cce_get_png_height(const char* filepath)
-{
-    if (!filepath) {
-        ERRLOG;
-        return -1;
-    }
-
-    int w = 0, h = 0, comp = 0;
-    if (stbi_info(filepath, &w, &h, &comp) == 0) {
-        cce_printf("❌ Failed to read PNG info \"%s\": %s\n", filepath, stbi_failure_reason());
-        return -1;
-    }
-
-    return h;
 }

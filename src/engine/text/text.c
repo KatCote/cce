@@ -54,7 +54,7 @@ struct TTF_Font {
 
 #endif
 
-TTF_Font* ttf_font_load(const char* filename, float font_size)
+TTF_Font* cce_font_load(const char* filename, float font_size)
 {
     FILE* font_file = fopen(filename, "rb");
     if (!font_file) {
@@ -130,7 +130,7 @@ TTF_Font* ttf_font_load(const char* filename, float font_size)
     return font;
 }
 
-void ttf_font_free(TTF_Font* font)
+void cce_font_free(TTF_Font* font)
 {
     if (font) {
         glDeleteTextures(1, &font->texture_id);
@@ -142,80 +142,7 @@ void ttf_font_free(TTF_Font* font)
     }
 }
 
-void ttf_render_text(TTF_Font* font, const char* text, float x, float y, CCE_Palette palette, ...)
-{
-    if (!font || !text) return;
-
-    CCE_Color color;
-
-    if (palette != Manual)
-    {
-        color = cce_get_color(0, 0, 0, 0, palette);
-    }
-    else
-    {
-        va_list rgb;
-        va_start(rgb, palette);
-        color.r = va_arg(rgb, double);
-        color.g = va_arg(rgb, double);
-        color.b = va_arg(rgb, double);
-        color.a = va_arg(rgb, double);
-        va_end(rgb);
-    }
-
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, font->texture_id);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    glColor4ub(color.r, color.g, color.b, color.a);
-    
-    float start_x = x;
-    
-    glBegin(GL_QUADS);
-    
-    while (*text) {
-        if (*text == '\n') {
-            y += font->font_size;
-            x = start_x;
-            text++;
-            continue;
-        }
-        
-        int char_index = *text - font->first_char;
-        if (char_index < 0 || char_index >= font->num_chars) {
-            text++;
-            continue;
-        }
-        
-        stbtt_bakedchar* b = &font->char_data[char_index];
-        
-        float x0 = x + b->xoff;
-        float y0 = y + b->yoff;
-        float x1 = x0 + b->x1 - b->x0;
-        float y1 = y0 + b->y1 - b->y0;
-        
-        float s0 = b->x0 / (float)font->texture_width;
-        float t0 = b->y0 / (float)font->texture_height;
-        float s1 = b->x1 / (float)font->texture_width;
-        float t1 = b->y1 / (float)font->texture_height;
-        
-        glTexCoord2f(s0, t0); glVertex2f(x0, y0);
-        glTexCoord2f(s1, t0); glVertex2f(x1, y0);
-        glTexCoord2f(s1, t1); glVertex2f(x1, y1);
-        glTexCoord2f(s0, t1); glVertex2f(x0, y1);
-        
-        x += b->xadvance;
-        text++;
-    }
-    
-    glEnd();
-    
-    glDisable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
-}
-
-float ttf_text_width(TTF_Font* font, const char* text)
+float cce_text_width(TTF_Font* font, const char* text)
 {
     if (!font || !text) return 0;
     
@@ -235,7 +162,7 @@ float ttf_text_width(TTF_Font* font, const char* text)
     return width;
 }
 
-void ttf_render_text_to_layer(CCE_Layer* layer, TTF_Font* font, const char* text, 
+void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text, 
                                int x, int y, float scale, CCE_Color color)
 {
     if (!layer || !font || !text || !font->ttf_data) return;
@@ -323,7 +250,7 @@ void ttf_render_text_to_layer(CCE_Layer* layer, TTF_Font* font, const char* text
     }
 }
 
-void ttf_render_text_to_layer_fmt(CCE_Layer* layer, TTF_Font* font, 
+void cce_draw_text_fmt(CCE_Layer* layer, TTF_Font* font, 
                                    int x, int y, float scale, CCE_Color color,
                                    const char* format, ...)
 {
@@ -354,7 +281,7 @@ void ttf_render_text_to_layer_fmt(CCE_Layer* layer, TTF_Font* font,
     }
     
     // Call the actual rendering function
-    ttf_render_text_to_layer(layer, font, buffer, x, y, scale, color);
+    cce_draw_text(layer, font, buffer, x, y, scale, color);
     
     // Free dynamically allocated buffer if used
     if (dynamic_buffer) {
