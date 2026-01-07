@@ -97,7 +97,7 @@ int main() {
     
     int frame = 0;
     
-    while (cce_window_should_close(window) == 0 && frame < 6000)
+    while (cce_window_should_close(window) == 0 && frame < 600)
     {
         if (cce_fps_timer_should_update(timer))
         {

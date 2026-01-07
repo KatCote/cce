@@ -19,9 +19,13 @@ test-chunk:
 	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
 	$@/$@.out
 
-test-all: test-window test-moving-grid test-chunk
+test-sprite:
+	$(CC) $@/main.c $(LDFLAGS) -o $@/$@.out
+	$@/$@.out
+
+test-all: test-window test-chunk test-moving-grid test-sprite
 
 clean:
 	rm -f test_window/test_*.out
 
-.PHONY: clean test-all test-window test-pixel-grid test-moving-grid test-text test-chunk
+.PHONY: clean test-all test-window test-moving-grid test-chunk test-sprite

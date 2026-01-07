@@ -6,6 +6,7 @@ SRCS = \
 	src/engine/render/render.c \
 	src/engine/text/text.c \
 	src/engine/timer/timer.c \
+	src/engine/sprite/sprite.c \
 
 INCLUDES = \
 	-Isrc \
@@ -16,6 +17,7 @@ INCLUDES = \
 	-Isrc/engine/render \
 	-Isrc/engine/text \
 	-Isrc/engine/timer \
+	-Isrc/engine/sprite \
 
 CFLAGS = -std=c23 -Wall -Wextra -fPIC -O2
 
@@ -43,6 +45,9 @@ test-moving-grid: all
 
 test-chunk: all
 	$(MAKE) -C examples test-chunk
+
+test-sprite: all
+	$(MAKE) -C examples test-sprite
 
 test: all
 	$(MAKE) -C examples test-all

@@ -1,7 +1,33 @@
+/*
+===========================================================================
+MIT License
+
+Copyright (c) 2026 Stepan Pukhovskiy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+===========================================================================
+*/
+
 #ifndef CCE_GUARD_H
 #define CCE_GUARD_H
 
-#define CCE_VERSION "0.1.2"
+#define CCE_VERSION "0.2.0"
 #define CCE_VERNAME "Initial"
 #define CCE_NAME    "CastleCore Engine"
 
@@ -163,10 +189,25 @@ typedef struct {
 } CCE_FPS_Timer;
 
 CCE_FPS_Timer* cce_fps_timer_create(double target_tps);
-void cce_fps_timer_update(CCE_FPS_Timer* timer);
 int cce_fps_timer_should_update(CCE_FPS_Timer* timer);
-double cce_fps_timer_get_delta(CCE_FPS_Timer* timer);
 double cce_fps_timer_get_fps(CCE_FPS_Timer* timer);
 void cce_fps_timer_destroy(CCE_FPS_Timer* timer);
+
+/*
+    S P R I T E
+*/
+
+typedef struct
+{
+    int width;
+    int height;
+    int channels;      // Always 4 after load (RGBA)
+    unsigned char* data;
+} CCE_SpriteImage;
+
+int cce_sprite_image_load(const char* filepath, CCE_SpriteImage* out);
+void cce_sprite_image_free(CCE_SpriteImage* img);
+int cce_draw_png_to_layer(CCE_Layer* layer, const CCE_SpriteImage* sprite, int dst_x, int dst_y, int batch_size, CCE_Color modifier, int frame_step_px, int current_step);
+int cce_get_png_height(const char* filepath);
 
 #endif

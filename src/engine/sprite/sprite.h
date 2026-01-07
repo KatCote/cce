@@ -24,7 +24,7 @@ SOFTWARE.
 ===========================================================================
 */
 
-#ifndef CCE_INIT_GUARD_H
-#define CCE_INIT_GUARD_H
+#ifndef CCE_SPRITE_GUARD_H
+#define CCE_SPRITE_GUARD_H
 
 #endif
