@@ -27,4 +27,17 @@ SOFTWARE.
 #ifndef CCE_SHADER_GUARD_H
 #define CCE_SHADER_GUARD_H
 
+#include "../engine.h"
+#include "../render/render.h"
+
+int cce_shader_load_from_file(CCE_Shader* out, const char* path, CCE_ShaderType type, const char* name);
+void cce_shader_unload(CCE_Shader* shader);
+int cce_shader_apply(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, int arg_count, ...);
+int cce_shader_apply_tint(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, CCE_Color tint);
+int cce_shader_apply_grayscale(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+int cce_shader_apply_glow(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+int cce_shader_create_from_source(CCE_Shader* out, const char* vertex_src, const char* fragment_src, const char* name);
+int cce_shader_create_from_files(CCE_Shader* out, const char* vertex_path, const char* fragment_path, const char* name);
+int cce_shader_apply_bloom(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+
 #endif

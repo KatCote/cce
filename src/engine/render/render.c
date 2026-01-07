@@ -24,14 +24,17 @@ SOFTWARE.
 ===========================================================================
 */
 
+#define GL_GLEXT_PROTOTYPES 1
 #include "render.h"
 #include "../engine.h"
+#include "../shader/shader.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -44,23 +47,99 @@ SOFTWARE.
 #define GL_STREAM_DRAW 0x88E0
 #endif
 
-// Прямые объявления функций PBO (OpenGL 1.5+)
-// Эти функции должны быть доступны через динамическую загрузку или напрямую
-extern void glGenBuffers(GLsizei n, GLuint *buffers);
-extern void glDeleteBuffers(GLsizei n, const GLuint *buffers);
-extern void glBindBuffer(GLenum target, GLuint buffer);
-extern void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
-extern void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
+static GLuint g_quad_vao = 0;
+static GLuint g_quad_vbo = 0;
+static GLuint g_quad_ebo = 0;
+static CCE_Shader g_quad_shader;
+static GLint g_u_projection = -1;
+static GLint g_u_texture = -1;
+static int g_renderer_ready = 0;
+static float g_projection[16];
+static int g_proj_w = 0;
+static int g_proj_h = 0;
+static void update_dirty_chunks(CCE_Layer* layer);
 
-pct frame[1920][1080];
+static void make_ortho(float left, float right, float bottom, float top, float near_val, float far_val, float out[16])
+{
+    // Column-major layout
+    memset(out, 0, sizeof(float) * 16);
+    out[0]  = 2.0f / (right - left);
+    out[5]  = 2.0f / (top - bottom);
+    out[10] = -2.0f / (far_val - near_val);
+    out[12] = -(right + left) / (right - left);
+    out[13] = -(top + bottom) / (top - bottom);
+    out[14] = -(far_val + near_val) / (far_val - near_val);
+    out[15] = 1.0f;
+}
+
+static int ensure_quad_pipeline(void)
+{
+    if (g_renderer_ready) return 0;
+
+    const char* vs =
+        "#version 330 core\n"
+        "layout(location = 0) in vec2 aPos;\n"
+        "layout(location = 1) in vec2 aUV;\n"
+        "uniform mat4 uProjection;\n"
+        "out vec2 vUV;\n"
+        "void main() {\n"
+        "    vUV = aUV;\n"
+        "    gl_Position = uProjection * vec4(aPos, 0.0, 1.0);\n"
+        "}\n";
+
+    const char* fs =
+        "#version 330 core\n"
+        "in vec2 vUV;\n"
+        "uniform sampler2D uTexture;\n"
+        "out vec4 FragColor;\n"
+        "void main() {\n"
+        "    FragColor = texture(uTexture, vUV);\n"
+        "}\n";
+
+    if (cce_shader_create_from_source(&g_quad_shader, vs, fs, "cce-quad") != 0) {
+        return -1;
+    }
+
+    g_u_projection = glGetUniformLocation(g_quad_shader.program, "uProjection");
+    g_u_texture = glGetUniformLocation(g_quad_shader.program, "uTexture");
+
+    glGenVertexArrays(1, &g_quad_vao);
+    glGenBuffers(1, &g_quad_vbo);
+    glGenBuffers(1, &g_quad_ebo);
+
+    glBindVertexArray(g_quad_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, g_quad_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 16, NULL, GL_STREAM_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_quad_ebo);
+    const unsigned int indices[6] = {0, 1, 2, 2, 3, 0};
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+    g_renderer_ready = 1;
+    return 0;
+}
+
+void cce_render_prepare_layer(CCE_Layer* layer)
+{
+    if (!layer) return;
+    if (ensure_quad_pipeline() != 0) return;
+    update_dirty_chunks(layer);
+}
 
 void cce_setup_2d_projection(int width, int height)
 {
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, width, height, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    g_proj_w = width;
+    g_proj_h = height;
+    // Top-left origin: left=0, right=width, top=0, bottom=height
+    make_ortho(0.0f, (float)width, (float)height, 0.0f, -1.0f, 1.0f, g_projection);
+    glViewport(0, 0, width, height);
+    ensure_quad_pipeline();
 }
 
 
@@ -325,63 +404,75 @@ void update_dirty_chunks(CCE_Layer* layer)
 
 void render_layer(CCE_Layer* layer)
 {
-    // Обновляем только грязные чанки
+    if (!layer) return;
+    if (ensure_quad_pipeline() != 0) return;
+
     update_dirty_chunks(layer);
-    
-    // Включаем текстуры
-    glEnable(GL_TEXTURE_2D);
+
+    float verts[16] = {
+        0.0f,               0.0f,                0.0f, 0.0f,
+        (float)layer->scr_w, 0.0f,                1.0f, 0.0f,
+        (float)layer->scr_w, (float)layer->scr_h, 1.0f, 1.0f,
+        0.0f,               (float)layer->scr_h, 0.0f, 1.0f
+    };
+
+    glUseProgram(g_quad_shader.program);
+    glUniformMatrix4fv(g_u_projection, 1, GL_FALSE, g_projection);
+    glUniform1i(g_u_texture, 0);
+
+    glBindVertexArray(g_quad_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, g_quad_vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, layer->texture);
-    
-    // Рисуем всю текстуру одним квадом В ПИКСЕЛЬНЫХ КООРДИНАТАХ
-    // (0,0) - верхний левый, (width,height) - нижний правый
-    glBegin(GL_QUADS);
-    // Верхний левый
-    glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
-    // Верхний правый
-    glTexCoord2f(1.0f, 0.0f); glVertex2f((float)layer->scr_w, 0.0f);
-    // Нижний правый
-    glTexCoord2f(1.0f, 1.0f); glVertex2f((float)layer->scr_w, (float)layer->scr_h);
-    // Нижний левый
-    glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, (float)layer->scr_h);
-    glEnd();
-    
-    glDisable(GL_TEXTURE_2D);
+
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glBindVertexArray(0);
+    glUseProgram(0);
 }
 
 void render_pie(CCE_Layer** layers, int count)
 {
     if (!layers || count <= 0) return;
-    
-    // Обновляем грязные чанки для всех слоев ПЕРЕД рендерингом
+    if (ensure_quad_pipeline() != 0) return;
+
     for (int i = 0; i < count; i++) {
         if (!layers[i] || !layers[i]->enabled) continue;
         update_dirty_chunks(layers[i]);
     }
-    
-    // Включаем текстуры и блендинг ОДИН РАЗ для всех слоёв
-    glEnable(GL_TEXTURE_2D);
+
+    glUseProgram(g_quad_shader.program);
+    glUniformMatrix4fv(g_u_projection, 1, GL_FALSE, g_projection);
+    glUniform1i(g_u_texture, 0);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // Теперь рендерим все слои
+
+    glBindVertexArray(g_quad_vao);
+
     for (int i = 0; i < count; i++) {
         if (!layers[i] || !layers[i]->enabled) continue;
-        
-        // Привязываем текстуру слоя
+
+        float verts[16] = {
+            0.0f,                   0.0f,                    0.0f, 0.0f,
+            (float)layers[i]->scr_w, 0.0f,                    1.0f, 0.0f,
+            (float)layers[i]->scr_w, (float)layers[i]->scr_h, 1.0f, 1.0f,
+            0.0f,                   (float)layers[i]->scr_h, 0.0f, 1.0f
+        };
+
+        glBindBuffer(GL_ARRAY_BUFFER, g_quad_vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, layers[i]->texture);
-        
-        // Рисуем слой
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f((float)layers[i]->scr_w, 0.0f);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f((float)layers[i]->scr_w, (float)layers[i]->scr_h);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, (float)layers[i]->scr_h);
-        glEnd();
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     }
-    
-    // Выключаем после отрисовки всех слоёв
+
+    glBindVertexArray(0);
     glDisable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
+    glUseProgram(0);
 }
 
 void destroy_layer(CCE_Layer* layer)
@@ -438,28 +529,32 @@ void test_simple()
                  GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    
-    // Включаем текстуру
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    
-    // Рисуем в ПИКСЕЛЬНЫХ координатах!
-    // Размещаем в центре экрана 1920x1080
-    float x0 = (1920 - w) / 2.0f;
-    float y0 = (1080 - h) / 2.0f;
-    float x1 = x0 + w;
-    float y1 = y0 + h;
-    
-    glBegin(GL_QUADS);
-    // Текстурные координаты: (0,0) - левый нижний, (1,1) - правый верхний
-    // Вершинные координаты: в пикселях от (0,0) до (1920,1080)
-    glTexCoord2f(0.0f, 1.0f); glVertex2f(x0, y0);  // левый верхний
-    glTexCoord2f(1.0f, 1.0f); glVertex2f(x1, y0);  // правый верхний
-    glTexCoord2f(1.0f, 0.0f); glVertex2f(x1, y1);  // правый нижний
-    glTexCoord2f(0.0f, 0.0f); glVertex2f(x0, y1);  // левый нижний
-    glEnd();
-    
-    glDisable(GL_TEXTURE_2D);
+
+    if (ensure_quad_pipeline() == 0)
+    {
+        float verts[16] = {
+            0.0f, 0.0f, 0.0f, 0.0f,
+            (float)w, 0.0f, 1.0f, 0.0f,
+            (float)w, (float)h, 1.0f, 1.0f,
+            0.0f, (float)h, 0.0f, 1.0f
+        };
+
+        glUseProgram(g_quad_shader.program);
+        glUniformMatrix4fv(g_u_projection, 1, GL_FALSE, g_projection);
+        glUniform1i(g_u_texture, 0);
+
+        glBindVertexArray(g_quad_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, g_quad_vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        glBindVertexArray(0);
+        glUseProgram(0);
+    }
+
     glDeleteTextures(1, &texture);
     free(pixels);
 }

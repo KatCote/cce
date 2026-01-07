@@ -207,4 +207,40 @@ int cce_sprite_load(CCE_Sprite* out);
 void cce_sprite_free(CCE_Sprite* img);
 int cce_draw_sprite(CCE_Layer* layer, const CCE_Sprite* sprite, int dst_x, int dst_y, int batch_size, CCE_Color modifier, int frame_step_px, int current_step);
 
+/*
+    S H A D E R
+*/
+
+typedef enum
+{
+    CCE_SHADER_TINT = 0,
+    CCE_SHADER_GRAYSCALE = 1,
+    CCE_SHADER_GLOW = 2,
+    CCE_SHADER_BLOOM = 3,
+    CCE_SHADER_CUSTOM = 4,
+} CCE_ShaderType;
+
+typedef struct
+{
+    unsigned int program;
+    unsigned int vertex_id;
+    unsigned int fragment_id;
+    CCE_ShaderType type;
+    char name[64];
+    char path[256];
+    int uniform_texture;
+    int uniform_coeff;
+    int uniform_tint;
+    int uniform_resolution;
+    bool loaded;
+} CCE_Shader;
+
+int cce_shader_load_from_file(CCE_Shader* out, const char* path, CCE_ShaderType type, const char* name);
+void cce_shader_unload(CCE_Shader* shader);
+int cce_shader_apply(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, int arg_count, ...);
+int cce_shader_apply_tint(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, CCE_Color tint);
+int cce_shader_apply_grayscale(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+int cce_shader_apply_glow(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+int cce_shader_apply_bloom(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
+
 #endif

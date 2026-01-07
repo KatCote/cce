@@ -93,8 +93,6 @@ int cce_engine_init(void)
     cce_printf("R8 - %d\n", RP.r8);
     cce_printf("R9 - %d\n", RP.r9);
 
-    glEnable(GL_TEXTURE_2D);
-
     return 0;
 }
 

@@ -11,7 +11,7 @@ SRCS = \
 
 INCLUDES = \
 	-Isrc \
-	-Isrc/exteral \
+	-Isrc/external \
 	-Isrc/engine \
 	-Isrc/engine/window \
 	-Isrc/engine/init \
@@ -50,6 +50,9 @@ test-chunk: all
 
 test-sprite: all
 	$(MAKE) -C examples test-sprite
+
+test-shader: all
+	$(MAKE) -C examples test-shader
 
 test: all
 	$(MAKE) -C examples test-all

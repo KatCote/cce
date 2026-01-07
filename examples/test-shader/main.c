@@ -1,14 +1,9 @@
 #include "../../build/include/cce.h"
 #include <stdio.h>
-#include <GL/gl.h>
 #include <unistd.h>
 #include <string.h>
 
-typedef struct {
-    float x, y, radius;
-} CloudBlob;
-
-void draw_grid_to_layer(CCE_Layer* layer, int x0, int y0, int x1, int y1, int pixel_size, int offset_x, int offset_y, CCE_Palette palette)
+static void draw_grid_to_layer(CCE_Layer* layer, int x0, int y0, int x1, int y1, int pixel_size, int offset_x, int offset_y, CCE_Palette palette)
 {
     if (!layer) return;
     if ((x0 > x1) || (y0 > y1)) return;
@@ -42,7 +37,7 @@ void draw_grid_to_layer(CCE_Layer* layer, int x0, int y0, int x1, int y1, int pi
 int main() {
     int width = 1920;
     int height = 1080;
-    printf("=== CCE Moving Grid Test (Layers) ===\n");
+    printf("=== CCE Glow Shader Test (Layers) ===\n");
 
     CCE_Sprite sprite_fireplace = {0};
     CCE_Sprite sprite_fireplace2 = {0};
@@ -71,7 +66,7 @@ int main() {
 
     set_engine_msaa(8);
     
-    Window* window = cce_window_create(width, height, CCE_NAME " " CCE_VERSION " | " "Moving Grid");
+    Window* window = cce_window_create(width, height, CCE_NAME " " CCE_VERSION " | Glow Shader");
     if (!window) {
         printf("Window creation failed\n");
         cce_engine_cleanup();
@@ -91,12 +86,20 @@ int main() {
     CCE_Layer* sprite_layer = create_layer(width, height, "Sprite Layer");
     CCE_Layer* light_layer = create_layer(width, height, "Light Layer");
     CCE_Layer* text_layer = create_layer(width, height, "Text Layer");
-    
-    printf("Starting pixel grid rendering with layers...\n");
-    
+
+    // Load shader for glow pass on the light layer.
+    CCE_Shader glow_shader = {0};
+
+    cce_shader_load_from_file(&glow_shader, "./shaders/glow.frag", CCE_SHADER_GLOW, "glow");
+
+    CCE_Shader bloom_shader = {0};
+
+    cce_shader_load_from_file(&bloom_shader, "./shaders/bloom.frag", CCE_SHADER_BLOOM, "bloom");
+
     int frame = 0;
     float fps = 0.0f;
 
+    // Static scene setup.
     cce_draw_sprite(
         sprite_layer,
         &sprite_fireplace,
@@ -142,7 +145,7 @@ int main() {
     draw_grid_to_layer(grid_layer1, 0, 0, width/2, height, 10, 0, 0, DefaultStone);
     draw_grid_to_layer(grid_layer2, width/2, 0, width, height, 5, 5, 5, DefaultGrass);
 
-    while (cce_window_should_close(window) == 0 && frame < 600)
+    while (cce_window_should_close(window) == 0 && frame < 60000)
     {
         if (cce_fps_timer_should_update(timer))
         {
@@ -150,48 +153,52 @@ int main() {
             
             CCE_Color empty = cce_get_color(0, 0, 0, 0, Empty);
             set_pixel_rect(text_layer, 0, 0, width - 1, height - 1, empty);
+            set_pixel_rect(light_layer, 0, 0, width - 1, height - 1, empty);
 
-            if (frame % 12 == 0)
-            {
-                static int frame_step = 1;
-
-                cce_draw_sprite(
-                    light_layer,
-                    &sprite_fireplace2,
-                    (width/4)*3 - sprite_fireplace2.height/2 * batch_size,
-                    height/3 - sprite_fireplace2.height/2 * batch_size,
-                    batch_size,
-                    cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
-                    32,
-                    frame_step == 3 ? frame_step = 0 : ++frame_step
-                );
+            static int frame_step_anim = 1;
+            if (frame % 12 == 0) {
+                frame_step_anim = (frame_step_anim == 3) ? 0 : frame_step_anim + 1;
             }
 
-            if (frame % 12 == 0)
-            {
-                static int frame_step = 1;
+            cce_draw_sprite(
+                light_layer,
+                &sprite_fireplace2,
+                (width/4)*3 - sprite_fireplace2.height/2 * batch_size,
+                height/3 - sprite_fireplace2.height/2 * batch_size,
+                batch_size,
+                cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
+                32,
+                frame_step_anim
+            );
 
-                cce_draw_sprite(
-                    light_layer,
-                    &sprite_fireplace2,
-                    width/4 - sprite_fireplace2.height/2 * batch_size,
-                    (height/3)*2 - sprite_fireplace2.height/2 * batch_size,
-                    batch_size,
-                    cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
-                    32,
-                    frame_step == 3 ? frame_step = 0 : ++frame_step
-                );
-            }
+            cce_draw_sprite(
+                light_layer,
+                &sprite_fireplace2,
+                width/4 - sprite_fireplace2.height/2 * batch_size,
+                (height/3)*2 - sprite_fireplace2.height/2 * batch_size,
+                batch_size,
+                cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255),
+                32,
+                frame_step_anim
+            );
             
             char fps_text[32];
             snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", fps);
             CCE_Color text_color = cce_get_color(0, 0, 0, 0, DefaultLight);
             cce_draw_text(text_layer, font, fps_text, 50, 80, 1.0f, text_color);
             
-            // Base scene (no light yet)
+            // Draw base layers first (without light).
             CCE_Layer* base_layers[] = {grid_layer1, grid_layer2, sprite_layer, light_layer, text_layer};
             render_pie(base_layers, 5);
-            
+
+            // Apply glow shader to the animated fire layer.
+            //cce_shader_apply_glow(&glow_shader, light_layer, 1.0f);
+            cce_shader_apply_bloom(&bloom_shader, light_layer, 1.0f);
+
+            // Draw HUD/text on top.
+            // CCE_Layer* hud_layers[] = {light_layer, text_layer};
+            // render_pie(hud_layers, 2);
+
             cce_window_swap_buffers(window);
             
             frame++;
@@ -213,6 +220,8 @@ int main() {
     destroy_layer(text_layer);
     cce_sprite_free(&sprite_fireplace);
     cce_sprite_free(&sprite_fireplace2);
+    cce_shader_unload(&glow_shader);
+    
     cce_font_free(font);
     cce_fps_timer_destroy(timer);
     cce_window_destroy(window);

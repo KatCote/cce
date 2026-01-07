@@ -47,7 +47,6 @@ Window* cce_window_create(int width, int height, const char* title)
     if (engine_msaa > 0)
     {
         glfwWindowHint(GLFW_SAMPLES, (GLint) engine_msaa);
-        glEnable(GL_MULTISAMPLE);
     }
     
     glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
@@ -55,28 +54,21 @@ Window* cce_window_create(int width, int height, const char* title)
     
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_FALSE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
     
     GLFWwindow* glfw_window = glfwCreateWindow(width, height, title, NULL, NULL);
     
     if (!glfw_window)
     {
-        cce_printf("Trying OpenGL 2.1...\n");
-        glfwDefaultWindowHints();
-        glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-        
-        glfw_window = glfwCreateWindow(width, height, title, NULL, NULL);
-        
-        if (!glfw_window)
-        {
-            cce_printf("❌ Failed to create OpenGL 2.1 window\n");
-            return NULL;
-        }
+        cce_printf("❌ Failed to create OpenGL 3.3 core window\n");
+        return NULL;
     }
     
     glfwMakeContextCurrent(glfw_window);
+    if (engine_msaa > 0) {
+        glEnable(GL_MULTISAMPLE);
+    }
     
     Window* window = malloc(sizeof(Window));
     if (!window)
