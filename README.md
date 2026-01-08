@@ -1,4 +1,4 @@
-<img width="2000" height="1000" alt="CCE_Large" src="https://github.com/user-attachments/assets/1be5949d-43c3-4d34-a3de-2aa5b5d27e6f" />
+<img width="2000" height="1000" alt="CCE_Large" src="https://github.com/user-attachments/assets/324a4c35-0784-4915-b43f-1d23cd3123bf" />
 
 # CastleCore Engine
 
