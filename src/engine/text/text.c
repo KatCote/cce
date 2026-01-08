@@ -31,6 +31,7 @@ SOFTWARE.
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <GL/gl.h>
 
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -50,6 +51,14 @@ struct TTF_Font {
     int num_chars;
     unsigned char* ttf_data;
     long ttf_data_size;
+
+    // Cached font info to avoid stbtt_InitFont on every call.
+    stbtt_fontinfo info;
+    int info_initialized;
+
+    // Scratch buffer for glyph rasterization (avoids per-glyph malloc/free).
+    unsigned char* glyph_scratch;
+    size_t glyph_scratch_size;
 };
 
 #endif
@@ -71,6 +80,7 @@ TTF_Font* cce_font_load(const char* filename, float font_size)
     fclose(font_file);
     
     TTF_Font* font = malloc(sizeof(TTF_Font));
+    memset(font, 0, sizeof(TTF_Font));
     font->font_size = font_size;
     font->first_char = 32;
     font->num_chars = 96;
@@ -116,13 +126,24 @@ TTF_Font* cce_font_load(const char* filename, float font_size)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, font->texture_width, font->texture_height, 
                  0, GL_RGBA, GL_UNSIGNED_BYTE, rgba_bitmap);
     
-    stbtt_fontinfo info;
-    stbtt_InitFont(&info, ttf_data, 0);
-    font->scale = stbtt_ScaleForPixelHeight(&info, font_size);
+    if (!stbtt_InitFont(&font->info, ttf_data, 0)) {
+        printf("Failed to init font\n");
+        free(ttf_data);
+        free(temp_bitmap);
+        free(rgba_bitmap);
+        free(font->char_data);
+        free(font);
+        return NULL;
+    }
+    font->info_initialized = 1;
+    font->scale = stbtt_ScaleForPixelHeight(&font->info, font_size);
     
     // Store TTF data for rasterization
     font->ttf_data = ttf_data;
     font->ttf_data_size = file_size;
+
+    font->glyph_scratch = NULL;
+    font->glyph_scratch_size = 0;
     
     free(temp_bitmap);
     free(rgba_bitmap);
@@ -135,6 +156,9 @@ void cce_font_free(TTF_Font* font)
     if (font) {
         glDeleteTextures(1, &font->texture_id);
         free(font->char_data);
+        if (font->glyph_scratch) {
+            free(font->glyph_scratch);
+        }
         if (font->ttf_data) {
             free(font->ttf_data);
         }
@@ -142,42 +166,82 @@ void cce_font_free(TTF_Font* font)
     }
 }
 
-float cce_text_width(TTF_Font* font, const char* text)
+float cce_text_width(TTF_Font* font, const char* text, float scale)
 {
-    if (!font || !text) return 0;
-    
-    float width = 0;
-    
+    if (!font || !text || !font->ttf_data) return 0;
+    if (*text == '\0') return 0;
+    if (!font->info_initialized) return 0;
+
+    float actual_scale = font->scale * scale;
+    float width = 0.0f;
+
     while (*text) {
         if (*text == '\n') break;
-        
-        int char_index = *text - font->first_char;
-        if (char_index >= 0 && char_index < font->num_chars) {
-            stbtt_bakedchar* b = &font->char_data[char_index];
-            width += b->xadvance;
-        }
+
+        int codepoint = (unsigned char)*text;
+        int advance_width = 0;
+        int left_side_bearing = 0;
+        stbtt_GetCodepointHMetrics(&font->info, codepoint, &advance_width, &left_side_bearing);
+
+        int next_codepoint = (unsigned char)*(text + 1);
+        int kern = stbtt_GetCodepointKernAdvance(&font->info, codepoint, next_codepoint);
+
+        width += (advance_width + kern) * actual_scale;
         text++;
     }
-    
+
     return width;
+}
+
+float cce_text_ascent(TTF_Font* font, float scale)
+{
+    if (!font || !font->ttf_data) return 0;
+    if (!font->info_initialized) return 0;
+
+    int ascent = 0, descent = 0, line_gap = 0;
+    stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
+
+    float actual_scale = font->scale * scale;
+    return ascent * actual_scale;
+}
+
+float cce_text_height(TTF_Font* font, const char* text, float scale)
+{
+    if (!font || !text || !font->ttf_data) return 0;
+    if (*text == '\0') return 0;
+
+    if (!font->info_initialized) return 0;
+
+    int ascent, descent, line_gap;
+    stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
+
+    float actual_scale = font->scale * scale;
+    float line_height = (ascent - descent + line_gap) * actual_scale;
+
+    int lines = 1;
+    const char* ptr = text;
+    while (*ptr) {
+        if (*ptr == '\n') {
+            lines++;
+        }
+        ptr++;
+    }
+
+    return line_height * lines;
 }
 
 void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text, 
                                int x, int y, float scale, CCE_Color color)
 {
     if (!layer || !font || !text || !font->ttf_data) return;
-    
-    stbtt_fontinfo info;
-    if (!stbtt_InitFont(&info, font->ttf_data, 0)) {
-        return;
-    }
+    if (!font->info_initialized) return;
     
     // Calculate the actual scale (font scale * user scale)
     float actual_scale = font->scale * scale;
     
     // Get font metrics for baseline
     int ascent, descent, line_gap;
-    stbtt_GetFontVMetrics(&info, &ascent, &descent, &line_gap);
+    stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
     
     float current_x = (float)x;
     float current_y = (float)y;
@@ -195,22 +259,33 @@ void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text,
         
         // Get character metrics
         int advance_width, left_side_bearing;
-        stbtt_GetCodepointHMetrics(&info, codepoint, &advance_width, &left_side_bearing);
+        stbtt_GetCodepointHMetrics(&font->info, codepoint, &advance_width, &left_side_bearing);
         
         // Get bitmap box to determine size
         int ix0, iy0, ix1, iy1;
-        stbtt_GetCodepointBitmapBox(&info, codepoint, actual_scale, actual_scale, &ix0, &iy0, &ix1, &iy1);
+        stbtt_GetCodepointBitmapBox(&font->info, codepoint, actual_scale, actual_scale, &ix0, &iy0, &ix1, &iy1);
         
         int bitmap_width = ix1 - ix0;
         int bitmap_height = iy1 - iy0;
         
         if (bitmap_width > 0 && bitmap_height > 0) {
-            // Allocate bitmap buffer
-            unsigned char* bitmap = malloc(bitmap_width * bitmap_height);
-            if (bitmap) {
-                // Render glyph to bitmap
-                stbtt_MakeCodepointBitmap(&info, bitmap, bitmap_width, bitmap_height, 
-                                         bitmap_width, actual_scale, actual_scale, codepoint);
+            const size_t needed = (size_t)bitmap_width * (size_t)bitmap_height;
+            if (needed > font->glyph_scratch_size) {
+                unsigned char* new_buf = realloc(font->glyph_scratch, needed);
+                if (!new_buf) {
+                    // Skip glyph if allocation fails.
+                    current_x += advance_width * actual_scale;
+                    text++;
+                    continue;
+                }
+                font->glyph_scratch = new_buf;
+                font->glyph_scratch_size = needed;
+            }
+
+            unsigned char* bitmap = font->glyph_scratch;
+            // Render glyph to bitmap
+            stbtt_MakeCodepointBitmap(&font->info, bitmap, bitmap_width, bitmap_height,
+                                      bitmap_width, actual_scale, actual_scale, codepoint);
                 
                 // Calculate position
                 // stb_truetype uses y-up coordinate system (y=0 at baseline, y increases upward)
@@ -239,9 +314,6 @@ void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text,
                         }
                     }
                 }
-                
-                free(bitmap);
-            }
         }
         
         // Advance to next character

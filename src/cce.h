@@ -27,7 +27,7 @@ SOFTWARE.
 #ifndef CCE_GUARD_H
 #define CCE_GUARD_H
 
-#define CCE_VERSION "0.2.0"
+#define CCE_VERSION "0.2.1"
 #define CCE_VERNAME "Initial"
 #define CCE_NAME    "CastleCore Engine"
 
@@ -87,12 +87,31 @@ int get_randpack_value(RandPackIndex index);
     W I N D O W
 */
 
+typedef enum
+{
+    CCE_WINDOW_WINDOWED = 0,
+    CCE_WINDOW_FULLSCREEN = 1,
+} CCE_WindowMode;
+
+typedef struct
+{
+    const char* title;
+    int width;          // requested window size (or fullscreen mode size)
+    int height;         // requested window size (or fullscreen mode size)
+    int monitor_index;  // used when mode == CCE_WINDOW_FULLSCREEN (or for centering)
+    int batch_size;     // user-defined scale factor for tests/demos (e.g. sprite pixel batch)
+    CCE_WindowMode mode;
+} CCE_WindowConfig;
+
 Window* cce_window_create(int width, int height, const char* title);
+Window* cce_window_create_ex(const CCE_WindowConfig* cfg);
 void cce_window_destroy(Window* window);
 int cce_window_should_close(const Window* window);
 void cce_window_poll_events(void);
 void cce_window_swap_buffers(Window* window);
 void cce_window_make_current(Window* window);
+int cce_window_get_size(const Window* window, int* out_w, int* out_h);
+int cce_window_get_batch_size(const Window* window);
 
 /*
     R E N D E R
@@ -143,6 +162,8 @@ typedef enum CCE_Palette
     DefaultLeaves   = 5,
     DefaultCloud    = 6,
     Empty           = 7,
+    Full            = 8,
+    Alpha           = 9,
 } CCE_Palette;
 
 typedef struct CCE_Layer CCE_Layer;
@@ -166,7 +187,9 @@ typedef struct TTF_Font TTF_Font;
 
 TTF_Font* cce_font_load(const char* filename, float font_size);
 void cce_font_free(TTF_Font* font);
-float cce_text_width(TTF_Font* font, const char* text);
+float cce_text_width(TTF_Font* font, const char* text, float scale);
+float cce_text_ascent(TTF_Font* font, float scale);
+float cce_text_height(TTF_Font* font, const char* text, float scale);
 void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text, int x, int y, float scale, CCE_Color color);
 void cce_draw_text_fmt(CCE_Layer* layer, TTF_Font* font, int x, int y, float scale, CCE_Color color, const char* format, ...);
 

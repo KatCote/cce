@@ -320,11 +320,16 @@ void set_pixel_rect(CCE_Layer* layer, int x0, int y0, int x1, int y1, CCE_Color 
             for (int ly = local_y0; ly <= local_y1; ly++) {
                 for (int lx = local_x0; lx <= local_x1; lx++) {
                     int index = ly * chunk->w + lx;
+                    if (chunk->data[index].r == color.r &&
+                        chunk->data[index].g == color.g &&
+                        chunk->data[index].b == color.b &&
+                        chunk->data[index].a == color.a) {
+                        continue; // already the same, skip write
+                    }
                     chunk->data[index] = color;
+                    chunk->dirty = true;
                 }
             }
-            
-            chunk->dirty = true;
         }
     }
 }
@@ -398,7 +403,7 @@ void update_dirty_chunks(CCE_Layer* layer)
 
     if (updated > 0 && CCE_DEBUG == 1) {
         cce_printf("Dirty chunks updated: %d/%d on %s\n", 
-                   updated, dirty_count, layer->name);
+                   updated, layer->chunk_count_x * layer->chunk_count_y, layer->name);
     }
 }
 
@@ -566,6 +571,30 @@ CCE_Color cce_get_color(int pos_x, int pos_y, int offset_x, int offset_y, CCE_Pa
 
     switch (palette)
     {
+        case Alpha:
+            va_list alpha;
+            va_start(alpha, palette);
+            ret.a = (pct) va_arg(alpha, int);
+            va_end(alpha);
+            ret.r = 255;
+            ret.g = 255;
+            ret.b = 255;
+            break;
+
+        case Empty:
+            ret.r = 0;
+            ret.g = 0;
+            ret.b = 0;
+            ret.a = 0;
+            break;
+
+        case Full:
+            ret.r = 255;
+            ret.g = 255;
+            ret.b = 255;
+            ret.a = 255;
+            break;
+            
         case Red:
             ret.r = 255;
             ret.g = 0;
@@ -651,13 +680,6 @@ CCE_Color cce_get_color(int pos_x, int pos_y, int offset_x, int offset_y, CCE_Pa
             ret.g = noise;
             ret.b = noise;
             ret.a = 80u;
-            break;
-
-        case Empty:
-            ret.r = 0;
-            ret.g = 0;
-            ret.b = 0;
-            ret.a = 0;
             break;
 
         default:

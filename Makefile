@@ -54,6 +54,9 @@ test-sprite: all
 test-shader: all
 	$(MAKE) -C examples test-shader
 
+test-demo: all
+	$(MAKE) -C examples test-demo
+
 test: all
 	$(MAKE) -C examples test-all
 

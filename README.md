@@ -9,7 +9,7 @@
 ### Working with the network at the engine core level, which makes it possible to create complex multiplayer projects.
 #
 [![license](https://badgen.net/badge/License/MIT/blue?icon=opencollective)](https://github.com/KatCote/cce?tab=MIT-1-ov-file#readme)
-![version](https://badgen.net/badge/Version/0.2.0/orange?icon=terminal)
+![version](https://badgen.net/badge/Version/0.2.1/orange?icon=terminal)
 [![wiki](https://badgen.net/badge/Wiki/Click/purple?icon=wiki)](https://github.com/KatCote/cce/wiki)
 
 </br>

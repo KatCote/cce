@@ -1,7 +1,9 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "../../build/include/cce.h"
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
+#include <time.h>
 
 static void draw_grid_to_layer(CCE_Layer* layer, int x0, int y0, int x1, int y1, int pixel_size, int offset_x, int offset_y, CCE_Palette palette)
 {
@@ -208,7 +210,9 @@ int main() {
         }
         
         cce_window_poll_events();
-        usleep(100);
+        struct timespec ts = {0};
+        ts.tv_nsec = 100000; // 100 µs
+        nanosleep(&ts, NULL);
     }
     
     printf("Test completed\n");
