@@ -41,4 +41,17 @@ int cce_shader_create_from_files(CCE_Shader* out, const char* vertex_path, const
 int cce_shader_apply_bloom(const CCE_Shader* shader, CCE_Layer* layer, float coefficient);
 int cce_shader_apply_bloom_radius(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, float radius);
 
+// Render the shader into an arbitrary framebuffer target, sampling from `src_texture`.
+// Intended for per-layer postprocess (bake-on-dirty / each-frame).
+int cce_shader_apply_to_texture(
+    const CCE_Shader* shader,
+    unsigned int src_texture,
+    unsigned int dst_fbo,
+    int dst_w,
+    int dst_h,
+    float coefficient,
+    int arg_count,
+    ...
+);
+
 #endif

@@ -33,7 +33,7 @@ void draw_grid_to_layer(CCE_Layer* layer, int x0, int y0, int x1, int y1, int pi
             
             CCE_Color color = cce_get_color(pixel_x, pixel_y, offset_x, offset_y, palette);
             
-            set_pixel_rect(layer, pixel_x, pixel_y, px1, py1, color);
+            cce_set_pixel_rect(layer, pixel_x, pixel_y, px1, py1, color);
         }
     }
 }
@@ -92,7 +92,7 @@ void draw_cloud_to_layer(CCE_Layer* layer, int center_x, int center_y, int offse
                     
                     // Рисуем только если батч не пустой
                     if (batch_x0 <= batch_x1 && batch_y0 <= batch_y1) {
-                        set_pixel_rect(layer, batch_x0, batch_y0, batch_x1, batch_y1, color);
+                        cce_set_pixel_rect(layer, batch_x0, batch_y0, batch_x1, batch_y1, color);
                     }
                 }
             }
@@ -127,10 +127,10 @@ int main() {
     
     TTF_Font* font = cce_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 72);
     
-    CCE_Layer* grid_layer1 = create_layer(width, height, "Grid Layer 1");
-    CCE_Layer* grid_layer2 = create_layer(width, height, "Grid Layer 2");
-    CCE_Layer* cloud_layer = create_layer(width, height, "Cloud Layer");
-    CCE_Layer* text_layer = create_layer(width, height, "Text Layer");
+    CCE_Layer* grid_layer1 = cce_layer_cpu_create(width, height, "Grid Layer 1");
+    CCE_Layer* grid_layer2 = cce_layer_cpu_create(width, height, "Grid Layer 2");
+    CCE_Layer* cloud_layer = cce_layer_cpu_create(width, height, "Cloud Layer");
+    CCE_Layer* text_layer = cce_layer_cpu_create(width, height, "Text Layer");
     
     printf("Starting pixel grid rendering with layers...\n");
     
@@ -147,10 +147,10 @@ int main() {
             glClear(GL_COLOR_BUFFER_BIT);
 
             CCE_Color empty = cce_get_color(0, 0, 0, 0, Empty);
-            set_pixel_rect(grid_layer1, 0, 0, width/2 - 1, height - 1, empty);
-            set_pixel_rect(grid_layer2, width/2, 0, width - 1, height - 1, empty);
-            set_pixel_rect(cloud_layer, 0, 0, width - 1, height - 1, empty);
-            set_pixel_rect(text_layer, 0, 0, width - 1, height - 1, empty);
+            cce_set_pixel_rect(grid_layer1, 0, 0, width/2 - 1, height - 1, empty);
+            cce_set_pixel_rect(grid_layer2, width/2, 0, width - 1, height - 1, empty);
+            cce_set_pixel_rect(cloud_layer, 0, 0, width - 1, height - 1, empty);
+            cce_set_pixel_rect(text_layer, 0, 0, width - 1, height - 1, empty);
             
             draw_grid_to_layer(grid_layer1, 0, 0, width/2, height, 10, frame * 10, frame * 10, DefaultStone);
             draw_grid_to_layer(grid_layer2, width/2, 0, width, height, 5, frame * -5, frame * -5, DefaultGrass);
@@ -178,10 +178,10 @@ int main() {
     
     printf("Test completed\n");
     
-    destroy_layer(grid_layer1);
-    destroy_layer(grid_layer2);
-    destroy_layer(cloud_layer);
-    destroy_layer(text_layer);
+    cce_layer_destroy(grid_layer1);
+    cce_layer_destroy(grid_layer2);
+    cce_layer_destroy(cloud_layer);
+    cce_layer_destroy(text_layer);
     
     cce_font_free(font);
     cce_fps_timer_destroy(timer);

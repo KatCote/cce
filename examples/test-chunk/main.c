@@ -36,11 +36,11 @@ int main() {
     
     cce_setup_2d_projection(width, height);
 
-    CCE_Layer* background = create_layer(width, height, "Background");
+    CCE_Layer* background = cce_layer_cpu_create(width, height, "Background");
     
-    CCE_Layer* foreground = create_layer(width, height, "Foreground");
+    CCE_Layer* foreground = cce_layer_cpu_create(width, height, "Foreground");
 
-    CCE_Layer* text_layer = create_layer(width, height, "Text Layer");
+    CCE_Layer* text_layer = cce_layer_cpu_create(width, height, "Text Layer");
     
     int chunk_count_x = (width + get_engine_chunk_size() - 1) / get_engine_chunk_size();
     int chunk_count_y = (height + get_engine_chunk_size() - 1) / get_engine_chunk_size();
@@ -62,7 +62,7 @@ int main() {
             for (int y = start_y; y < end_y; y++) {
                 for (int x = start_x; x < end_x; x++) {
                     CCE_Color color = cce_get_color(0, 0, 0, 0, Manual, r, g, b, 255);
-                    set_pixel(background, x, y, color);
+                    cce_set_pixel(background, x, y, color);
                 }
             }
         }
@@ -118,7 +118,7 @@ int main() {
             for (int y = prev_square_top; y < prev_square_bottom; y++) {
                 for (int x = prev_square_left; x < prev_square_right; x++) {
                     if (x >= 0 && x < width && y >= 0 && y < height) {
-                        set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Empty));
+                        cce_set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Empty));
                     }
                 }
             }
@@ -131,7 +131,7 @@ int main() {
                         int dy = y - (int)(circle_y - circle_speed_y);
                         
                         if (dx*dx + dy*dy <= prev_circle_r2) {
-                            set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Empty));
+                            cce_set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Empty));
                         }
                     }
                 }
@@ -174,7 +174,7 @@ int main() {
             for (int y = prev_square_top; y < prev_square_bottom; y++) {
                 for (int x = prev_square_left; x < prev_square_right; x++) {
                     if (x >= 0 && x < width && y >= 0 && y < height) {
-                        set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Manual, 255, 0, 0, 125));
+                        cce_set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Manual, 255, 0, 0, 125));
                     }
                 }
             }
@@ -187,13 +187,13 @@ int main() {
                         int dy = y - (int)circle_y;
                         
                         if (dx*dx + dy*dy <= circle_r2) {
-                            set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Green));
+                            cce_set_pixel(foreground, x, y, cce_get_color(0, 0, 0, 0, Green));
                         }
                     }
                 }
             }
             
-            set_pixel(foreground, width/2, height/2, cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255));
+            cce_set_pixel(foreground, width/2, height/2, cce_get_color(0, 0, 0, 0, Manual, 255, 255, 255, 255));
                 
             CCE_Layer* layers[] = {background, foreground, text_layer};
             render_pie(layers, 3);
@@ -210,9 +210,9 @@ int main() {
         usleep(100);
     }
     
-    destroy_layer(foreground);
-    destroy_layer(background);
-    destroy_layer(text_layer);
+    cce_layer_destroy(foreground);
+    cce_layer_destroy(background);
+    cce_layer_destroy(text_layer);
     
     cce_window_destroy(window);
     cce_engine_cleanup();

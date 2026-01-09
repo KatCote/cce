@@ -130,6 +130,9 @@ static GLuint g_pp_vao = 0;
 static GLuint g_pp_vbo = 0;
 static GLuint g_pp_ebo = 0;
 
+// Forward declaration for vararg uniform helper used before its definition.
+static void apply_varargs(const CCE_Shader* shader, int arg_count, va_list args);
+
 static char* read_file_to_buffer(const char* path)
 {
     FILE* f = fopen(path, "rb");
@@ -233,6 +236,59 @@ static int ensure_postprocess_quad(void)
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
+    return 0;
+}
+
+static int cce_shader_render_to_fbo(const CCE_Shader* shader, unsigned int src_texture, unsigned int dst_fbo, int dst_w, int dst_h, float coefficient, int arg_count, va_list args)
+{
+    if (!shader || !shader->loaded) return -1;
+    if (dst_w <= 0 || dst_h <= 0) return -1;
+    if (ensure_postprocess_quad() != 0) return -1;
+
+    // Save viewport + FBO.
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    GLint prev_fbo = 0;
+#ifndef GL_FRAMEBUFFER_BINDING
+#define GL_FRAMEBUFFER_BINDING 0x8CA6
+#endif
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+
+    // Clear destination to avoid additive accumulation between frames.
+    glDisable(GL_BLEND);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(shader->program);
+
+    if (shader->uniform_texture >= 0) glUniform1i(shader->uniform_texture, 0);
+    if (shader->uniform_coeff >= 0) glUniform1f(shader->uniform_coeff, coefficient);
+    if (shader->uniform_resolution >= 0) glUniform2f(shader->uniform_resolution, (float)dst_w, (float)dst_h);
+
+    if (shader->uniform_tint >= 0 && shader->type != CCE_SHADER_TINT && arg_count == 0)
+    {
+        glUniform4f(shader->uniform_tint, 1.0f, 1.0f, 1.0f, 1.0f);
+    }
+    if (arg_count > 0) {
+        apply_varargs(shader, arg_count, args);
+    }
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, (GLuint)src_texture);
+
+    glBindVertexArray(g_pp_vao);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+
+    // Restore.
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
     return 0;
 }
 
@@ -352,11 +408,11 @@ static int cce_shader_render(const CCE_Shader* shader, CCE_Layer* layer, float c
     glEnable(GL_BLEND);
     if (shader->type == CCE_SHADER_GLOW || shader->type == CCE_SHADER_BLOOM)
     {
-        glBlendFunc(GL_ONE, GL_ONE); // additive for light effects
+        glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE); // additive for light effects
     }
     else
     {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     }
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glDisable(GL_BLEND);
@@ -393,11 +449,11 @@ static int cce_shader_render_with_radius(const CCE_Shader* shader, CCE_Layer* la
     glEnable(GL_BLEND);
     if (shader->type == CCE_SHADER_GLOW || shader->type == CCE_SHADER_BLOOM)
     {
-        glBlendFunc(GL_ONE, GL_ONE); // additive for light effects
+        glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE); // additive for light effects
     }
     else
     {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     }
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glDisable(GL_BLEND);
@@ -447,6 +503,23 @@ int cce_shader_apply_bloom(const CCE_Shader* shader, CCE_Layer* layer, float coe
 int cce_shader_apply_bloom_radius(const CCE_Shader* shader, CCE_Layer* layer, float coefficient, float radius)
 {
     return cce_shader_render_with_radius(shader, layer, coefficient, radius);
+}
+
+int cce_shader_apply_to_texture(
+    const CCE_Shader* shader,
+    unsigned int src_texture,
+    unsigned int dst_fbo,
+    int dst_w,
+    int dst_h,
+    float coefficient,
+    int arg_count,
+    ...)
+{
+    va_list args;
+    va_start(args, arg_count);
+    int res = cce_shader_render_to_fbo(shader, src_texture, dst_fbo, dst_w, dst_h, coefficient, arg_count, args);
+    va_end(args);
+    return res;
 }
 
 int cce_shader_create_from_source(CCE_Shader* out, const char* vertex_src, const char* fragment_src, const char* name)

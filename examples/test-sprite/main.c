@@ -34,7 +34,7 @@ void draw_grid_to_layer(CCE_Layer* layer, int x0, int y0, int x1, int y1, int pi
             
             CCE_Color color = cce_get_color(pixel_x, pixel_y, offset_x, offset_y, palette);
             
-            set_pixel_rect(layer, pixel_x, pixel_y, px1, py1, color);
+            cce_set_pixel_rect(layer, pixel_x, pixel_y, px1, py1, color);
         }
     }
 }
@@ -86,11 +86,11 @@ int main() {
 
     int batch_size = 10;
     
-    CCE_Layer* grid_layer1 = create_layer(width, height, "Grid Layer 1");
-    CCE_Layer* grid_layer2 = create_layer(width, height, "Grid Layer 2");
-    CCE_Layer* sprite_layer = create_layer(width, height, "Sprite Layer");
-    CCE_Layer* light_layer = create_layer(width, height, "Light Layer");
-    CCE_Layer* text_layer = create_layer(width, height, "Text Layer");
+    CCE_Layer* grid_layer1 = cce_layer_cpu_create(width, height, "Grid Layer 1");
+    CCE_Layer* grid_layer2 = cce_layer_cpu_create(width, height, "Grid Layer 2");
+    CCE_Layer* sprite_layer = cce_layer_cpu_create(width, height, "Sprite Layer");
+    CCE_Layer* light_layer = cce_layer_cpu_create(width, height, "Light Layer");
+    CCE_Layer* text_layer = cce_layer_cpu_create(width, height, "Text Layer");
     
     printf("Starting pixel grid rendering with layers...\n");
     
@@ -149,7 +149,7 @@ int main() {
             fps = timer->fps;
             
             CCE_Color empty = cce_get_color(0, 0, 0, 0, Empty);
-            set_pixel_rect(text_layer, 0, 0, width - 1, height - 1, empty);
+            cce_set_pixel_rect(text_layer, 0, 0, width - 1, height - 1, empty);
 
             if (frame % 12 == 0)
             {
@@ -206,11 +206,11 @@ int main() {
     
     printf("Test completed\n");
     
-    destroy_layer(grid_layer1);
-    destroy_layer(grid_layer2);
-    destroy_layer(sprite_layer);
-    destroy_layer(light_layer);
-    destroy_layer(text_layer);
+    cce_layer_destroy(grid_layer1);
+    cce_layer_destroy(grid_layer2);
+    cce_layer_destroy(sprite_layer);
+    cce_layer_destroy(light_layer);
+    cce_layer_destroy(text_layer);
     cce_sprite_free(&sprite_fireplace);
     cce_sprite_free(&sprite_fireplace2);
     cce_font_free(font);

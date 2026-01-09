@@ -10,11 +10,11 @@ int main(void)
 {
     // Demo launch mode (code-level switch; no user prompts).
     const int demo_fullscreen = 1;   // 0 = windowed, 1 = fullscreen
-    const int demo_monitor = 0;      // monitor index (0 = primary)
-    const int demo_width = 1920;     // requested resolution (used for windowed; for fullscreen will be matched/closest)
-    const int demo_height = 1080;
-    const int demo_batch_size = 4;   // sprite "pixel batch" scale
-    const int logo_duration = 0;
+    const int demo_monitor = 1;      // monitor index (0 = primary)
+    const int demo_width = 2560;     // requested resolution (used for windowed; for fullscreen will be matched/closest)
+    const int demo_height = 1440;
+    const int demo_batch_size = 6;   // sprite "pixel batch" scale
+    const int logo_duration = 180;
 
     printf("=== CCE UI Test Stub ===\n");
 
@@ -41,6 +41,18 @@ int main(void)
         return -1;
     }
 
+    // Cursor demo: replace cursor on window hover with a custom image, otherwise keep normal arrow.
+    // (The project currently has only this cursor image.)
+    if (cce_window_set_cursor(window, CCE_CURSOR_ARROW) != 0) {
+        printf("Failed to set base cursor\n");
+    }
+    if (cce_window_set_cursor_image(window, "/home/katcote/cce/examples/assets/cursor/Cursor_Default.png", 0, 0) != 0) {
+        printf("Failed to load custom cursor image\n");
+    } else {
+        // Enable "on hover" cursor switch to the custom cursor.
+        cce_window_set_cursor_on_hover(window, 1, CCE_CURSOR_CUSTOM);
+    }
+
     int width = 0;
     int height = 0;
     cce_window_get_size(window, &width, &height);
@@ -57,117 +69,121 @@ int main(void)
         return -1;
     }
 
-    CCE_Layer* bg_l1 = create_layer(width, height, "BG L1");
-    CCE_Layer* bg_l2 = create_layer(width, height, "BG L2");
-    CCE_Layer* bg_l3 = create_layer(width, height, "BG L3");
-    CCE_Layer* bg_l4 = create_layer(width, height, "BG L4");
+    // GPU assets (no CPU layers).
+    CCE_Texture tex_logo = {0};
+    CCE_Texture tex_button_glass = {0};
+    CCE_Texture tex_button_fluid = {0};
+    CCE_Texture tex_bg1 = {0};
+    CCE_Texture tex_bg2 = {0};
+    CCE_Texture tex_bg3 = {0};
+    CCE_Texture tex_bg4 = {0};
+    
+    if (cce_texture_load(&tex_logo, "/home/katcote/cce/examples/assets/CCE.png") != 0) return -1;
+    if (cce_texture_load(&tex_button_glass, "/home/katcote/cce/examples/assets/interface/Button2_Glass.png") != 0) return -1;
+    if (cce_texture_load(&tex_button_fluid, "/home/katcote/cce/examples/assets/interface/Button2_Fluid.png") != 0) return -1;
+    if (cce_texture_load(&tex_bg1, "/home/katcote/cce/examples/assets/DemoBG_L1.png") != 0) return -1;
+    if (cce_texture_load(&tex_bg2, "/home/katcote/cce/examples/assets/DemoBG_L2.png") != 0) return -1;
+    if (cce_texture_load(&tex_bg3, "/home/katcote/cce/examples/assets/DemoBG_L3.png") != 0) return -1;
+    if (cce_texture_load(&tex_bg4, "/home/katcote/cce/examples/assets/DemoBG_L4.png") != 0) return -1;
 
-    CCE_Layer* ui_l1 = create_layer(width, height, "UI L1");
-    CCE_Layer* ui_l2 = create_layer(width, height, "UI L2");
-    CCE_Layer* ui_l3 = create_layer(width, height, "UI L3");
-    CCE_Layer* ui_l4 = create_layer(width, height, "UI L4");
-
-    CCE_Sprite logo = {0};
-
-    CCE_Sprite button_glass = {0};
-    CCE_Sprite button_fluid = {0};
-
-    CCE_Sprite bg_level_1 = {0};
-    CCE_Sprite bg_level_2 = {0};
-    CCE_Sprite bg_level_3 = {0};
-
-    strcpy(logo.path, "/home/katcote/cce/examples/assets/CCE.png");
-    if (cce_sprite_load(&logo) != 0) {
-        printf("Failed to load sprite: %s\n", logo.path);
-        return -1;
-    }
-
-    strcpy(button_glass.path, "/home/katcote/cce/examples/assets/interface/Button2_Glass.png");
-    if (cce_sprite_load(&button_glass) != 0) {
-        printf("Failed to load sprite: %s\n", button_glass.path);
-        return -1;
-    }
-
-    strcpy(button_fluid.path, "/home/katcote/cce/examples/assets/interface/Button2_Fluid.png");
-    if (cce_sprite_load(&button_fluid) != 0) {
-        printf("Failed to load sprite: %s\n", button_fluid.path);
-        return -1;
-    }
-
-    strcpy(bg_level_1.path, "/home/katcote/cce/examples/assets/DemoBG_L1.png");
-    if (cce_sprite_load(&bg_level_1) != 0) {
-        printf("Failed to load sprite: %s\n", bg_level_1.path);
-        return -1;
-    }
-
-    strcpy(bg_level_2.path, "/home/katcote/cce/examples/assets/DemoBG_L2.png");
-    if (cce_sprite_load(&bg_level_2) != 0) {
-        printf("Failed to load sprite: %s\n", bg_level_2.path);
-        return -1;
-    }
-
-    strcpy(bg_level_3.path, "/home/katcote/cce/examples/assets/DemoBG_L3.png");
-    if (cce_sprite_load(&bg_level_3) != 0) {
-        printf("Failed to load sprite: %s\n", bg_level_3.path);
-        return -1;
-    }
     TTF_Font* font = cce_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 6);
+    // Fixedsys is a pixel font; keep it crisp when upscaled in GPU mode.
+    cce_font_set_smooth(font, 0);
 
-    // Pre-render static scene (same idea as test-shader): draw static content once,
-    // then only update animated elements in the loop.
-    {
-        // Background is static.
-        cce_draw_sprite(bg_l1, &bg_level_1, 0, 0, batch_size, cce_get_color(0, 0, 0, 0, Full), 0, 0);
-        cce_draw_sprite(bg_l2, &bg_level_2, 0, 0, batch_size, cce_get_color(0, 0, 0, 0, Full), 0, 0);
-        cce_draw_sprite(bg_l3, &bg_level_3, 0, 0, batch_size, cce_get_color(0, 0, 0, 0, Full), 0, 0);
+    // GPU layers: "draw once and keep".
+    // We bake static parts into layers once, and update only the animated layer when needed.
+    CCE_Layer* layer_logo = cce_layer_create(width, height, "Logo Layer", CCE_LAYER_GPU);
+    CCE_Layer* layer_bg = cce_layer_create(width, height, "BG Layer", CCE_LAYER_GPU);
+    CCE_Layer* layer_bg_sub = cce_layer_create(width, height, "BG Sub Layer", CCE_LAYER_GPU);
+    CCE_Layer* layer_ui = cce_layer_create(width, height, "UI Layer", CCE_LAYER_GPU);
+    CCE_Layer* layer_ui_sub = cce_layer_create(width, height, "UI Sub Layer", CCE_LAYER_GPU);
 
-        // Glass button is static; animated fluid will be drawn on top each frame.
-        const int btn_scale = (batch_size > 1) ? (batch_size / 2) : 1;
-        cce_draw_sprite(
-            ui_l2,
-            &button_glass,
-            (width/2) - ((button_glass.width/2) * btn_scale),
-            (height/2) - ((button_glass.height/2) * btn_scale),
-            btn_scale,
-            cce_get_color(0, 0, 0, 0, Full),
-            0,
-            0
-        );
+    // Precompute shared UI layout.
+    const float logo_scale = (float)batch_size;
+    const float logo_w = (float)tex_logo.width * logo_scale;
+    const float logo_h = (float)tex_logo.height * logo_scale;
 
-        // Static texts.
-        int text_scale_1 = 3.0f * batch_size;
-        char text_1[] = "Start";
-        cce_draw_text(
-            ui_l3,
-            font,
-            text_1,
-            (width/2.0f) - (cce_text_width(font, text_1, text_scale_1)/2.0f),
-            (height/2.0f) - (cce_text_height(font, text_1, text_scale_1)/2.0f) + cce_text_ascent(font, text_scale_1) + (btn_scale),
-            text_scale_1,
-            cce_get_color(0, 0, 0, 0, Manual, 0, 0, 0, 128)
-        );
-        cce_draw_text(
-            ui_l4,
-            font,
-            text_1,
-            width/2.0f - cce_text_width(font, text_1, text_scale_1)/2.0f,
-            height/2.0f - cce_text_height(font, text_1, text_scale_1)/2.0f + cce_text_ascent(font, text_scale_1) - (btn_scale),
-            text_scale_1,
-            cce_get_color(0, 0, 0, 0, Full)
-        );
+    const float btn_scale = batch_size * 0.5f;
+    const float btn_w = (float)tex_button_glass.width * btn_scale;
+    const float btn_h = (float)tex_button_glass.height * btn_scale;
+    const float btn_x = (width * 0.5f) - (btn_w * 0.5f);
+    const float btn_y = (height * 0.5f) - (btn_h * 0.5f);
 
-        int text_scale_2 = 1.0f * batch_size;
-        char text_2[] = "Version: " CCE_VERSION;
-        cce_draw_text(
-            ui_l4,
-            font,
-            text_2,
-            batch_size,
-            height - batch_size,
-            text_scale_2,
-            cce_get_color(0, 0, 0, 0, Alpha, 64)
-        );
-    }
+    // Bake logo-only splash layer.
+    cce_layer_begin(layer_logo);
+    cce_layer_clear(layer_logo, cce_get_color(0, 0, 0, 0, Manual, 19, 19, 19, 255));
+    cce_draw_texture_region(
+        &tex_logo,
+        (width * 0.5f) - (logo_w * 0.5f),
+        (height * 0.5f) - (logo_h * 0.5f),
+        logo_w,
+        logo_h,
+        0, 0, 1, 1,
+        cce_get_color(0, 0, 0, 0, Full)
+    );
+    cce_layer_end(layer_logo);
+
+    // Bake static background.
+    cce_layer_begin(layer_bg);
+    cce_layer_clear(layer_bg, cce_get_color(0, 0, 0, 0, Empty));
+    cce_draw_texture_region(&tex_bg1, 0, 0, (float)width, (float)height, 0, 0, 1, 1, cce_get_color(0, 0, 0, 0, Full));
+    cce_draw_texture_region(&tex_bg2, 0, 0, (float)width, (float)height, 0, 0, 1, 1, cce_get_color(0, 0, 0, 0, Full));
+    cce_draw_texture_region(&tex_bg3, 0, 0, (float)width, (float)height, 0, 0, 1, 1, cce_get_color(0, 0, 0, 0, Full));
+    cce_layer_end(layer_bg);
+
+    // Bake static UI (logo, glass overlay, text).
+    cce_layer_begin(layer_ui);
+    cce_layer_clear(layer_ui, cce_get_color(0, 0, 0, 0, Empty));
+
+    // Logo on top.
+    cce_draw_texture_region(
+        &tex_logo,
+        (width * 0.5f) - (logo_w * 0.5f),
+        (height * 0.75f) - (logo_h * 0.5f) + (batch_size * 5.0f),
+        logo_w,
+        logo_h,
+        0, 0, 1, 1,
+        cce_get_color(0, 0, 0, 0, Full)
+    );
+
+    // Glass overlay (button frame).
+    cce_draw_texture_region(&tex_button_glass, btn_x, btn_y, btn_w, btn_h, 0, 0, 1, 1, cce_get_color(0, 0, 0, 0, Alpha, 200));
+
+    // Text (GPU).
+    const char text_1[] = "Start";
+    const float text_scale_1 = 3.0f * batch_size;
+    const float text_w = cce_text_width(font, text_1, text_scale_1);
+    const float text_h = cce_text_height(font, text_1, text_scale_1);
+
+    cce_draw_text_gpu(
+        font,
+        text_1,
+        (width * 0.5f) - (text_w * 0.5f),
+        (height * 0.5f) + (text_h * 0.35f)  - batch_size * 0.5f,
+        text_scale_1,
+        cce_get_color(0, 0, 0, 0, Shadow, 200)
+    );
+
+    cce_draw_text_gpu(
+        font,
+        text_1,
+        (width * 0.5f) - (text_w * 0.5f),
+        (height * 0.5f) + (text_h * 0.35f) - batch_size,
+        text_scale_1,
+        cce_get_color(0, 0, 0, 0, Full)
+    );
+
+    const char text_2[] = CCE_VERSION;
+    const float text_scale_2 = 1.0f * (float)batch_size;
+    cce_draw_text_gpu(
+        font,
+        text_2,
+        0 + batch_size,
+        height - batch_size,
+        text_scale_2,
+        cce_get_color(0, 0, 0, 0, Alpha, 64)
+    );
+    cce_layer_end(layer_ui);
 
     int frame = 0;
     while (!cce_window_should_close(window))
@@ -184,61 +200,36 @@ int main(void)
 
             if (frame <= logo_duration)
             {
-                cce_draw_sprite(
-                    ui_l1,
-                    &logo,
-                    (width/2) - ((logo.width/2) * batch_size),
-                    (height/2) - ((logo.height/2) * batch_size),
-                    batch_size,
-                    frame < logo_duration ?
-                    cce_get_color(0, 0, 0, 0, Full) :
-                    cce_get_color(0, 0, 0, 0, Empty),
-                    0,
-                    0   
-                );
+                CCE_Layer* layers[] = {layer_logo};
+                render_pie(layers, 1);
             }
             else
             {
-                cce_draw_sprite(
-                    ui_l1,
-                    &logo,
-                    (width/2.0f) - ((logo.width/2) * batch_size),
-                    (height/4.0f)*3 - ((logo.height/2) * batch_size) + (batch_size * 5.0f),
-                    batch_size,
-                    cce_get_color(0, 0, 0, 0, Full),
-                    0,
-                    0
+                float u0 = 0.0f, u1 = 1.0f;
+
+                cce_sprite_calc_frame_uv(&tex_bg4, tex_bg4.width / 2, 1, &u0, &u1);
+                cce_layer_begin(layer_bg_sub);
+                cce_layer_clear(layer_bg_sub, cce_get_color(0, 0, 0, 0, Empty));
+                cce_draw_texture_region(&tex_bg4, 0, 0, width, height, u0, 0.0f, u1, 1.0f, cce_get_color(0, 0, 0, 0, Full));
+                cce_layer_end(layer_bg_sub);
+
+                cce_sprite_calc_frame_uv(&tex_button_fluid, tex_button_glass.width, button_fluid_step_anim, &u0, &u1);
+                cce_layer_begin(layer_ui_sub);
+                cce_layer_clear(layer_ui_sub, cce_get_color(0, 0, 0, 0, Empty));
+                cce_draw_texture_region(
+                    &tex_button_fluid,
+                    btn_x,
+                    btn_y,
+                    btn_w,
+                    btn_h,
+                    u0, 0.0f, u1, 1.0f,
+                    cce_get_color(0, 0, 0, 0, Manual, 236, 255, 0, 255)
                 );
+                cce_layer_end(layer_ui_sub);
 
-                const int btn_scale = (batch_size > 1) ? (batch_size / 2) : 1;
-                const int fluid_dst_x = (width/2) - ((button_glass.width/2) * btn_scale);
-                const int fluid_dst_y = (height/2) - ((button_glass.height/2) * btn_scale);
-
-                // Clear only the region where the animated sprite was drawn last frame.
-                // cce_draw_sprite uses a bottom-left dst_y; it converts internally to top-left.
-                const int fluid_w = button_fluid.width * btn_scale;
-                const int fluid_h = button_fluid.height * btn_scale;
-                const int clear_x0 = fluid_dst_x;
-                const int clear_x1 = fluid_dst_x + fluid_w - 1;
-                const int clear_y0 = height - (fluid_dst_y + fluid_h);
-                const int clear_y1 = height - 1 - fluid_dst_y;
-                set_pixel_rect(ui_l1, clear_x0, clear_y0, clear_x1, clear_y1, cce_get_color(0, 0, 0, 0, Empty));
-
-                // Animated overlay.
-                cce_draw_sprite(
-                    ui_l1,
-                    &button_fluid,
-                    fluid_dst_x,
-                    fluid_dst_y,
-                    btn_scale,
-                    cce_get_color(0, 0, 0, 0, Manual, 236, 255, 0, 190),
-                    160,
-                    button_fluid_step_anim
-                );
+                CCE_Layer* layers[] = {layer_bg, layer_bg_sub, layer_ui_sub, layer_ui};
+                render_pie(layers, 4);
             }
-
-            CCE_Layer* layers[] = {bg_l1, bg_l2, bg_l3, bg_l4, ui_l1, ui_l2, ui_l3, ui_l4};
-            render_pie(layers, 8);
 
             cce_window_swap_buffers(window);
 
@@ -253,24 +244,22 @@ int main(void)
         nanosleep(&ts, NULL);
     }
 
-    destroy_layer(bg_l1);
-    destroy_layer(bg_l2);
-    destroy_layer(bg_l3);
-    destroy_layer(bg_l4);
-    destroy_layer(ui_l1);
-    destroy_layer(ui_l2);
-    destroy_layer(ui_l3);
-    destroy_layer(ui_l4);
-
     cce_fps_timer_destroy(timer);
 
+    cce_layer_destroy(layer_ui);
+    cce_layer_destroy(layer_ui_sub);
+    cce_layer_destroy(layer_bg);
+    cce_layer_destroy(layer_bg_sub);
+    cce_layer_destroy(layer_logo);
+
     cce_font_free(font);
-    cce_sprite_free(&logo);
-    cce_sprite_free(&button_glass);
-    cce_sprite_free(&button_fluid);
-    cce_sprite_free(&bg_level_1);
-    cce_sprite_free(&bg_level_2);
-    cce_sprite_free(&bg_level_3);
+
+    cce_texture_free(&tex_logo);
+    cce_texture_free(&tex_button_glass);
+    cce_texture_free(&tex_button_fluid);
+    cce_texture_free(&tex_bg1);
+    cce_texture_free(&tex_bg2);
+    cce_texture_free(&tex_bg3);
 
     cce_window_destroy(window);
     cce_engine_cleanup();

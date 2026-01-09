@@ -27,8 +27,8 @@ SOFTWARE.
 #ifndef CCE_GUARD_H
 #define CCE_GUARD_H
 
-#define CCE_VERSION "0.2.1"
-#define CCE_VERNAME "Initial"
+#define CCE_VERSION "0.2.2"
+#define CCE_VERNAME "Embryo"
 #define CCE_NAME    "CastleCore Engine"
 
 /* GLFW */
@@ -93,6 +93,22 @@ typedef enum
     CCE_WINDOW_FULLSCREEN = 1,
 } CCE_WindowMode;
 
+// Cursor types (GLFW-backed). `CCE_CURSOR_CUSTOM` uses an image set via cce_window_set_cursor_image.
+// Note: HIDDEN/DISABLED are modes (GLFW_CURSOR_HIDDEN / GLFW_CURSOR_DISABLED).
+typedef enum
+{
+    CCE_CURSOR_ARROW = 0,
+    CCE_CURSOR_IBEAM = 1,
+    CCE_CURSOR_CROSSHAIR = 2,
+    CCE_CURSOR_HAND = 3,
+    CCE_CURSOR_HRESIZE = 4,
+    CCE_CURSOR_VRESIZE = 5,
+    CCE_CURSOR_CUSTOM = 6,
+    CCE_CURSOR_HIDDEN = 7,
+    CCE_CURSOR_DISABLED = 8,
+    CCE_CURSOR_COUNT = 9, // internal sentinel
+} CCE_CursorType;
+
 typedef struct
 {
     const char* title;
@@ -113,6 +129,20 @@ void cce_window_make_current(Window* window);
 int cce_window_get_size(const Window* window, int* out_w, int* out_h);
 int cce_window_get_batch_size(const Window* window);
 
+// Cursor control
+// Sets the "base" cursor for the window. If hover override is enabled and the cursor is inside the window,
+// the hover cursor is used instead.
+int cce_window_set_cursor(Window* window, CCE_CursorType type);
+
+// Enables/disables cursor override while the mouse cursor is inside the window.
+// When enabled, the cursor switches to `type` on enter and reverts to the base cursor on leave.
+int cce_window_set_cursor_on_hover(Window* window, int enabled, CCE_CursorType type);
+
+// Sets a custom cursor image (typically PNG). Used when cursor type is `CCE_CURSOR_CUSTOM`.
+// hot_x/hot_y are the cursor hotspot coordinates in pixels.
+int cce_window_set_cursor_image(Window* window, const char* filename, int hot_x, int hot_y);
+void cce_window_clear_cursor_image(Window* window);
+
 /*
     R E N D E R
 */
@@ -125,6 +155,45 @@ typedef struct
     pct a;
 } CCE_Color;
 
+/*
+    G P U   2 D
+*/
+
+typedef struct
+{
+    unsigned int id; // OpenGL texture id
+    int width;
+    int height;
+} CCE_Texture;
+
+// Forward declarations to avoid circular headers.
+typedef struct CCE_Layer CCE_Layer;
+typedef struct CCE_Shader CCE_Shader;
+
+// Loads an image file into an OpenGL texture. Requires an active GL context.
+int cce_texture_load(CCE_Texture* out, const char* filename);
+void cce_texture_free(CCE_Texture* tex);
+
+// Draw a sub-rectangle of the texture as a quad in screen space (top-left origin).
+// UVs are normalized [0..1].
+int cce_draw_texture_region(
+    const CCE_Texture* tex,
+    float x, float y,
+    float w, float h,
+    float u0, float v0,
+    float u1, float v1,
+    CCE_Color tint
+);
+
+// Low-level batched draw: vertices are an array of (x,y,u,v) floats, `vertex_count` is number of vertices.
+// Requires an active GL context + projection set by cce_setup_2d_projection.
+int cce_draw_triangles_textured(
+    unsigned int texture_id,
+    const float* verts_xyuv,
+    int vertex_count,
+    CCE_Color tint
+);
+
 typedef struct
 {
     int x, y;
@@ -134,19 +203,56 @@ typedef struct
     bool visible;
 } CCE_Chunk;
 
+typedef enum
+{
+    CCE_LAYER_CPU = 0,
+    CCE_LAYER_GPU = 1,
+} CCE_LayerBackend;
+
+typedef enum
+{
+    CCE_LAYER_SHADER_NONE = 0,
+    // Apply shader every frame (does not modify base; uses an internal processed texture).
+    CCE_LAYER_SHADER_EACH_FRAME = 1,
+    // Recompute processed texture only when the layer changes / is cleared.
+    CCE_LAYER_SHADER_BAKE_ON_DIRTY = 2,
+} CCE_LayerShaderMode;
+
 struct CCE_Layer
 {
     int scr_w, scr_h;
-    int chunk_size;
-    int chunk_count_x, chunk_count_y;
-    CCE_Chunk*** chunks;
-    unsigned int texture;
     char* name;
     int layer_id;
     bool enabled;
+
+    // Backend selector.
+    CCE_LayerBackend backend;
+
+    // === Shared output ===
+    // Base texture that `render_pie` draws (and that legacy shader APIs sample).
+    unsigned int texture;
+
+    // === CPU backend data (legacy / software layer) ===
+    int chunk_size;
+    int chunk_count_x, chunk_count_y;
+    CCE_Chunk*** chunks;
+    bool has_dirty; // fast-path: if false, skip scanning chunks for updates
     unsigned int pbo_ids[2];
     int current_pbo_index;
     int pbo_size;
+
+    // === GPU backend data (render-target layer) ===
+    unsigned int fbo; // framebuffer that renders into `texture`
+
+    // === Per-layer postprocess ===
+    const CCE_Shader* shader;
+    CCE_LayerShaderMode shader_mode;
+    float shader_coefficient;
+    int shader_has_tint;
+    CCE_Color shader_tint;
+    unsigned int shader_texture; // processed texture (output of shader)
+    unsigned int shader_fbo;     // framebuffer for shader_texture
+    int shader_dirty;
 };
 
 typedef enum CCE_Palette
@@ -164,19 +270,34 @@ typedef enum CCE_Palette
     Empty           = 7,
     Full            = 8,
     Alpha           = 9,
+    Shadow          = 10,
 } CCE_Palette;
-
-typedef struct CCE_Layer CCE_Layer;
 
 void cce_setup_2d_projection(int width, int height);
 
 CCE_Color cce_get_color(int pos_x, int pos_y, int offset_x, int offset_y, CCE_Palette palette, ...);
-void set_pixel(CCE_Layer* layer, int screen_x, int screen_y, CCE_Color color);
-void set_pixel_rect(CCE_Layer* layer, int x0, int y0, int x1, int y1, CCE_Color color);
+void cce_set_pixel(CCE_Layer* layer, int screen_x, int screen_y, CCE_Color color);
+void cce_set_pixel_rect(CCE_Layer* layer, int x0, int y0, int x1, int y1, CCE_Color color);
 
-CCE_Layer* create_layer(int screen_w, int screen_h, char * name);
+// Layer creation
+// `cce_layer_create` now creates a GPU render-target layer by default (baked drawing; minimal CPU per frame).
+// Use `cce_layer_cpu_create` for the legacy chunk-based CPU layer.
+CCE_Layer* cce_layer_create(int screen_w, int screen_h, char * name, CCE_LayerBackend backend);
+CCE_Layer* cce_layer_cpu_create(int screen_w, int screen_h, char * name);
+CCE_Layer* cce_layer_gpu_create(int screen_w, int screen_h, char * name);
+
+// GPU layer recording helpers.
+// You can call draw functions without begin/end (they will auto-wrap), but batching with begin/end is faster.
+int cce_layer_begin(CCE_Layer* layer);
+int cce_layer_end(CCE_Layer* layer);
+int cce_layer_clear(CCE_Layer* layer, CCE_Color color);
+
+// Per-layer shader (applied to the layer's texture).
+int cce_layer_set_shader(CCE_Layer* layer, const CCE_Shader* shader, CCE_LayerShaderMode mode, float coefficient);
+int cce_layer_set_shader_tint(CCE_Layer* layer, CCE_Color tint);
+
 void render_layer(CCE_Layer* layer);
-void destroy_layer(CCE_Layer* layer);
+void cce_layer_destroy(CCE_Layer* layer);
 void render_pie(CCE_Layer** layers, int count); // This is a rendering of several layers one after the other.
 
 /*
@@ -187,11 +308,15 @@ typedef struct TTF_Font TTF_Font;
 
 TTF_Font* cce_font_load(const char* filename, float font_size);
 void cce_font_free(TTF_Font* font);
+// Controls texture filtering for GPU text rendering.
+// smooth=0 => nearest (crisp/pixelated), smooth=1 => linear (smooth/blurred when upscaled).
+void cce_font_set_smooth(TTF_Font* font, int smooth);
 float cce_text_width(TTF_Font* font, const char* text, float scale);
 float cce_text_ascent(TTF_Font* font, float scale);
 float cce_text_height(TTF_Font* font, const char* text, float scale);
 void cce_draw_text(CCE_Layer* layer, TTF_Font* font, const char* text, int x, int y, float scale, CCE_Color color);
 void cce_draw_text_fmt(CCE_Layer* layer, TTF_Font* font, int x, int y, float scale, CCE_Color color, const char* format, ...);
+int cce_draw_text_gpu(TTF_Font* font, const char* text, float x, float y, float scale, CCE_Color color);
 
 /*
     T I M E R
@@ -224,11 +349,15 @@ typedef struct
     int channels;      // Always 4 after load (RGBA)
     unsigned char* data;
     char path[256];
+    // Optional GPU cache for fast drawing on GPU layers.
+    // NOTE: may be lazily uploaded on first draw; kept in sync by cce_sprite_free().
+    unsigned int texture_id;
 } CCE_Sprite;
 
 int cce_sprite_load(CCE_Sprite* out);
 void cce_sprite_free(CCE_Sprite* img);
 int cce_draw_sprite(CCE_Layer* layer, const CCE_Sprite* sprite, int dst_x, int dst_y, int batch_size, CCE_Color modifier, int frame_step_px, int current_step);
+void cce_sprite_calc_frame_uv(const CCE_Texture* tex, int frame_width_px, int frame_index, float* u0, float* u1);
 
 /*
     S H A D E R
@@ -243,7 +372,7 @@ typedef enum
     CCE_SHADER_CUSTOM = 4,
 } CCE_ShaderType;
 
-typedef struct
+struct CCE_Shader
 {
     unsigned int program;
     unsigned int vertex_id;
@@ -256,7 +385,7 @@ typedef struct
     int uniform_tint;
     int uniform_resolution;
     bool loaded;
-} CCE_Shader;
+};
 
 int cce_shader_load_from_file(CCE_Shader* out, const char* path, CCE_ShaderType type, const char* name);
 void cce_shader_unload(CCE_Shader* shader);
