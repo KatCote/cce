@@ -77,6 +77,8 @@ int main(void)
     CCE_Texture tex_bg2 = {0};
     CCE_Texture tex_bg3 = {0};
     CCE_Texture tex_bg4 = {0};
+    CCE_Shader shader_glow = {0};
+    CCE_Shader shader_bloom = {0};
     
     if (cce_texture_load(&tex_logo, "/home/katcote/cce/examples/assets/CCE.png") != 0) return -1;
     if (cce_texture_load(&tex_button_glass, "/home/katcote/cce/examples/assets/interface/Button2_Glass.png") != 0) return -1;
@@ -85,6 +87,8 @@ int main(void)
     if (cce_texture_load(&tex_bg2, "/home/katcote/cce/examples/assets/DemoBG_L2.png") != 0) return -1;
     if (cce_texture_load(&tex_bg3, "/home/katcote/cce/examples/assets/DemoBG_L3.png") != 0) return -1;
     if (cce_texture_load(&tex_bg4, "/home/katcote/cce/examples/assets/DemoBG_L4.png") != 0) return -1;
+    if (cce_shader_load_from_file(&shader_glow, "/home/katcote/cce/examples/shaders/glow.frag", CCE_SHADER_GLOW, "glow") != 0) return -1;
+    if (cce_shader_load_from_file(&shader_bloom, "/home/katcote/cce/examples/shaders/bloom.frag", CCE_SHADER_BLOOM, "bloom") != 0) return -1;
 
     TTF_Font* font = cce_font_load("/home/katcote/cce/examples/fonts/Fixedsys.ttf", 6);
     // Fixedsys is a pixel font; keep it crisp when upscaled in GPU mode.
@@ -198,6 +202,11 @@ int main(void)
                 button_fluid_step_anim = (button_fluid_step_anim == 9) ? 0 : button_fluid_step_anim + 1;
             }
 
+            static int light_fluid_step_anim = 1;
+            if (frame % 20 == 0) {
+                light_fluid_step_anim = (light_fluid_step_anim == 9) ? 0 : light_fluid_step_anim + 1;
+            }
+
             if (frame <= logo_duration)
             {
                 CCE_Layer* layers[] = {layer_logo};
@@ -207,7 +216,7 @@ int main(void)
             {
                 float u0 = 0.0f, u1 = 1.0f;
 
-                cce_sprite_calc_frame_uv(&tex_bg4, tex_bg4.width / 2, 1, &u0, &u1);
+                cce_sprite_calc_frame_uv(&tex_bg4, tex_bg4.width / 2, light_fluid_step_anim, &u0, &u1);
                 cce_layer_begin(layer_bg_sub);
                 cce_layer_clear(layer_bg_sub, cce_get_color(0, 0, 0, 0, Empty));
                 cce_draw_texture_region(&tex_bg4, 0, 0, width, height, u0, 0.0f, u1, 1.0f, cce_get_color(0, 0, 0, 0, Full));
@@ -227,8 +236,11 @@ int main(void)
                 );
                 cce_layer_end(layer_ui_sub);
 
-                CCE_Layer* layers[] = {layer_bg, layer_bg_sub, layer_ui_sub, layer_ui};
-                render_pie(layers, 4);
+                cce_shader_apply_glow(&shader_glow, layer_bg_sub, 10.0f);
+                cce_shader_apply_bloom_radius(&shader_bloom, layer_bg_sub, 10.0f, 8.0f);
+
+                CCE_Layer* ui_layers[] = {layer_bg, layer_bg_sub, layer_ui_sub, layer_ui};
+                render_pie(ui_layers, 4);
             }
 
             cce_window_swap_buffers(window);
@@ -260,6 +272,8 @@ int main(void)
     cce_texture_free(&tex_bg1);
     cce_texture_free(&tex_bg2);
     cce_texture_free(&tex_bg3);
+    cce_shader_unload(&shader_glow);
+    cce_shader_unload(&shader_bloom);
 
     cce_window_destroy(window);
     cce_engine_cleanup();
